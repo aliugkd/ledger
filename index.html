@@ -111,6 +111,9 @@ details>summary{cursor:pointer;color:var(--link);font-size:14px;margin-top:10px}
 .pitem .amt{font-weight:600;font-variant-numeric:tabular-nums;margin-left:auto}
 .sechead{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between;margin-top:34px}
 .sechead h3{margin:0}
+.notes{display:flex;flex-wrap:wrap;gap:4px 6px;align-items:center;margin-top:3px}
+.notebtn{padding:0 6px;font-size:12px;opacity:.55}
+tr:hover .notebtn,.pitem:hover .notebtn,.notebtn:focus-visible{opacity:1}
 .basis{font-size:13px;color:var(--muted);margin:0;padding-left:18px}
 .chart svg{width:100%;height:auto;display:block}
 .chart text{fill:var(--muted);font-family:var(--f-num);font-size:11px}
@@ -909,8 +912,13 @@ function keyOf(t){
   k = k.replace(/\s*[*#]\s*[A-Za-z0-9-]{4,}.*$/,"").replace(/\s*\(?\d{4,}.*$/,"").trim();
   return k || clean(t.cp) || clean(t.desc);
 }
-const txDesc = t => { const a = clean(t.cp) || clean(t.desc) || "—", b = clean(t.cp) && clean(t.desc) !== a ? clean(t.desc) : ""; const n = noteOf(t); return `${esc(a)}${b ? `<div class="muted small">${esc(b)}</div>` : ""}${n ? `<div><span class="chip acc">备注：${esc(n)}</span></div>` : ""}`; };
-const catSelect = (t, id) => `<select id="${id}" data-act="setCat" data-id="${esc(t.id)}" aria-label="分类">${[...allCats(),PENDING_CAT].map(c=>`<option ${effCat(t)===c?"selected":""}>${c}</option>`).join("")}</select>`;
+function noteBlock(t){
+  if (S.noteEdit===t.id) return `<div class="row" style="margin-top:6px;gap:6px"><input type="text" id="noteIn" data-id="${esc(t.id)}" value="${esc(t.note||"")}" placeholder="为这笔交易添加备注" maxlength="60" style="min-width:180px;flex:1"><button class="btn sm pri" data-act="noteSave" data-id="${esc(t.id)}">保存</button><button class="btn sm ghost" data-act="noteCancel">取消</button></div>`;
+  const own = t.note, rule = !own && ruleFor(t)?.note;
+  return `<div class="notes">${own ? `<span class="chip acc">备注：${esc(own)}</span>` : rule ? `<span class="chip">规则备注：${esc(rule)}</span>` : ""}<button class="btn sm ghost notebtn" data-act="noteEdit" data-id="${esc(t.id)}">${own ? "编辑备注" : "添加备注"}</button></div>`;
+}
+const txDesc = t => { const a = clean(t.cp) || clean(t.desc) || "—", b = clean(t.cp) && clean(t.desc) !== a ? clean(t.desc) : ""; return `${esc(a)}${b ? `<div class="muted small">${esc(b)}</div>` : ""}${noteBlock(t)}`; };
+const catSelect = (t, id, none) => `<select id="${id}" data-act="setCat" data-id="${esc(t.id)}" aria-label="分类">${none ? `<option value="" selected>${none}</option>` : ""}${[...allCats(),PENDING_CAT].map(c=>`<option ${!none && effCat(t)===c?"selected":""}>${c}</option>`).join("")}</select>`;
 
 function vImport(L){
   const staged = S.files.filter(f=>f.staged), saved = S.files.filter(f=>!f.staged);
@@ -1090,7 +1098,7 @@ function vDetail(){
 function detailTable(list, withCat){
   return `<div class="tw" style="margin-top:10px"><table><thead><tr><th>时间</th><th>渠道</th><th>交易对象与说明</th><th>类型</th>${withCat?"<th>分类</th>":""}<th class="n">金额</th><th>标记</th><th>来源</th></tr></thead><tbody>
   ${list.map(t=>`<tr><td class="t">${t.date}${t.time?" "+t.time.slice(0,5):""}</td><td>${CHANNELS[t.channel]}</td><td class="wrapt">${txDesc(t)}</td><td class="small">${t._type}${t.status?`<div class="muted">${esc(t.status)}</div>`:""}</td>
-  ${withCat?`<td>${(t._type==="消费"||(t._type==="转账"&&tDec(t)==="消费"))?catSelect(t,"c-"+t.id):`<span class="muted small">—</span>`}</td>`:""}
+  ${withCat?`<td>${t._type==="消费"||(t._type==="转账"&&tDec(t)==="消费") ? catSelect(t,"c-"+t.id) : t._type==="转账" ? catSelect(t,"c-"+t.id,"不计为消费") : `<span class="muted small">—</span>`}</td>`:""}
   <td class="n ${t.dir==="收入"?"neg":""}">${t.dir==="收入"?"+":t.dir==="支出"?"":"±"}${yuan(t.amount)}</td><td>${flagsOf(t)}${(t._type==="消费"||t._type==="转账")&&keyOf(t)?` <button class="btn sm ghost" data-act="toRule" data-k="${encK(keyOf(t))}">设定规则</button>`:""}</td><td class="src">${src(t)}</td></tr>`).join("")}
   </tbody></table></div>`;
 }
@@ -1105,7 +1113,7 @@ function autoSection(){
 function vPending(L,p){
   if (!p.total) return `<h2>待处理</h2><div class="panel"><p style="margin:0">没有待处理的项目。${S.txns.length?"所有交易的分类、转账、退款与重复判断均已完成。":""}</p></div>` + autoSection();
   const lim = S.pLimit || 40;
-  const it = (t, body, actions) => `<div class="pitem"><div class="what"><span class="t muted small">${t.date} ${t.time.slice(0,5)}</span><strong>${esc(clean(t.cp)||clean(t.desc)||"—")}</strong><span class="muted small">${esc(clean(t.cp) && clean(t.desc)!==clean(t.cp) ? clean(t.desc) : "")}</span><span class="amt">${yuan(t.amount)}</span><span class="src small">${src(t)}</span></div>${body||""}<div class="row">${actions}</div></div>`;
+  const it = (t, body, actions) => `<div class="pitem">${""}<div class="what"><span class="t muted small">${t.date} ${t.time.slice(0,5)}</span><strong>${esc(clean(t.cp)||clean(t.desc)||"—")}</strong><span class="muted small">${esc(clean(t.cp) && clean(t.desc)!==clean(t.cp) ? clean(t.desc) : "")}</span><span class="amt">${yuan(t.amount)}</span><span class="src small">${src(t)}</span></div>${body||""}${noteBlock(t)}<div class="row">${actions}</div></div>`;
   const head = (title, n, note, bulk) => `<div class="sechead"><h3>${title} <span class="badge">${n}</span></h3>${bulk||""}</div><p class="small muted" style="margin:0 0 8px">${note}</p>`;
   const more = n => n>lim ? `<button class="btn sm ghost" data-act="pmore">显示更多（另有 ${n-lim} 组）</button>` : "";
   const strong = p.dup.filter(t=>t._dup.level==="强");
@@ -1154,10 +1162,16 @@ function vRules(){
   <div class="row"><input type="text" id="rq" placeholder="搜索交易对象" value="${esc(S.rq||"")}" class="grow" style="min-width:200px"><span class="small muted">${gs.length} 个对象</span></div>
   <div class="tw" style="margin-top:10px"><table><thead><tr><th>交易对象</th><th class="n">笔数</th><th class="n">金额</th><th>当前分类</th><th>备注</th><th></th></tr></thead><tbody>
   ${gs.slice(0,lim).map(g=>{ const ru = S.rules.cat[g.k] || S.rules.meta[g.k]; const m = S.rules.meta[g.k]||{}; const edit = S.editK===g.k;
-    return `<tr><td class="wrapt"><strong>${esc(g.k)}</strong>${ru?` <span class="chip acc">已设定</span>`:""}${g.tr?`<div class="small muted">其中转账 ${g.tr} 笔${tDec(g.list.find(t=>t._type==="转账"))==="消费"?"，已算消费":""}</div>`:""}</td><td class="n">${g.list.length}</td><td class="n">${yuan(g.sum)}</td><td class="small">${esc(catOf(g))}</td><td class="small">${esc(m.note||"—")}</td><td>${edit?"":`<button class="btn sm" data-act="ruleEdit" data-k="${encK(g.k)}">编辑</button>`}</td></tr>
-    ${edit?`<tr><td colspan="6" style="background:var(--accent-soft)"><div class="row"><label class="small">分类 <select id="reCat">${catOpts(S.rules.cat[g.k]||"")}</select></label><input type="text" id="reNote" placeholder="备注（选填）" value="${esc(m.note||"")}" class="grow" style="min-width:180px">${g.tr?`<label class="small"><input type="checkbox" id="reSpend" ${m.asSpend?"checked":""}> 转给该对象的款项计为消费</label>`:""}<button class="btn pri sm" data-act="ruleSave" data-k="${encK(g.k)}">保存并应用于 ${g.list.length} 笔交易</button>${ru?`<button class="btn sm ghost" data-act="ruleClear" data-k="${encK(g.k)}">删除规则</button>`:""}<button class="btn sm ghost" data-act="ruleCancel">取消</button></div><p class="small muted" style="margin:8px 0 0">保存后，该对象此前单独调整过的分类将统一为此设置。</p></td></tr>`:""}`; }).join("")}
+    return `<tr><td class="wrapt"><strong>${esc(g.k)}</strong>${ru?` <span class="chip acc">已设定</span>`:""}${g.tr?`<div class="small muted">其中转账 ${g.tr} 笔，${g.list.filter(t=>t._type==="转账"&&tDec(t)==="消费").length} 笔计为消费</div>`:""}</td><td class="n">${g.list.length}</td><td class="n">${yuan(g.sum)}</td><td class="small">${esc(catOf(g))}</td><td class="small">${esc(m.note||"—")}</td><td>${edit?"":`<button class="btn sm" data-act="ruleEdit" data-k="${encK(g.k)}">编辑</button>`}</td></tr>
+    ${edit?`<tr><td colspan="6" style="background:var(--accent-soft)"><div class="row"><label class="small">分类 <select id="reCat">${catOpts(S.rules.cat[g.k]||"")}</select></label><input type="text" id="reNote" placeholder="备注（选填）" value="${esc(m.note||"")}" class="grow" style="min-width:180px">${g.tr?`<label class="small"><input type="checkbox" id="reSpend" ${m.asSpend?"checked":""}> 转给该对象的款项计为消费</label>`:""}<button class="btn pri sm" data-act="ruleSave" data-k="${encK(g.k)}">保存并应用于 ${g.list.length} 笔交易</button>${ru?`<button class="btn sm ghost" data-act="ruleClear" data-k="${encK(g.k)}">删除规则</button>`:""}<button class="btn sm ghost" data-act="ruleCancel">取消</button></div><p class="small muted" style="margin:8px 0 0">保存后，该对象此前单独调整过的分类将统一为此设置。</p>
+      <details open><summary>逐笔设置分类与备注（${g.list.length} 笔）</summary><div class="tw" style="margin-top:8px"><table><thead><tr><th>时间</th><th>说明与备注</th><th>分类</th><th class="n">金额</th><th>来源</th></tr></thead><tbody>${g.list.slice().sort((x,y)=>ts(y)-ts(x)).map(t=>`<tr><td class="t">${t.date} ${t.time.slice(0,5)}</td><td class="wrapt"><span class="small">${esc(clean(t.desc)||t.rawType||"—")}</span>${noteBlock(t)}</td><td>${t._type==="消费"||tDec(t)==="消费" ? catSelect(t,"rc-"+t.id) : catSelect(t,"rc-"+t.id,"不计为消费")}</td><td class="n">${yuan(t.amount)}</td><td class="src">${src(t)}</td></tr>`).join("")}</tbody></table></div></details></td></tr>`:""}`; }).join("")}
   </tbody></table></div>
   ${gs.length>lim?`<button class="btn" style="margin-top:8px" data-act="rMore">显示更多</button>`:""}`;
+}
+function saveNote(t){
+  const v = ($("#noteIn")?.value || "").trim();
+  if (v) t.note = v; else delete t.note;
+  markDirty(t); S.noteEdit = null; S.msg = v ? "备注已保存。" : "备注已清除。"; render();
 }
 function applyRuleTo(match, asSpend){
   let n = 0;
@@ -1329,6 +1343,9 @@ document.addEventListener("click", e => {
     for (const t of pendingItems().cat){ const k = gkey(t), v = S.catSug[k]; if (v && (!only || k===only)){ t.cat = v; markDirty(t); if (k!=="（无交易对象）") S.rules.cat[k] = v; } }
     settingsChanged(); recompute(); render();
   }
+  else if (a==="noteEdit"){ S.noteEdit = id; render(); const n = $("#noteIn"); if (n){ n.focus(); n.setSelectionRange(n.value.length, n.value.length); } }
+  else if (a==="noteCancel"){ S.noteEdit = null; render(); }
+  else if (t && a==="noteSave"){ saveNote(t); }
   else if (a==="ruleEdit"){ S.editK = decodeURIComponent(el.dataset.k); render(); }
   else if (a==="ruleCancel"){ S.editK = null; render(); }
   else if (a==="rMore"){ S.rLimit = (S.rLimit||50) + 50; render(); }
@@ -1372,7 +1389,8 @@ document.addEventListener("click", e => {
   else if (t && a==="transfer"){ t.transferDecision = el.dataset.v; markDirty(t); render(); }
   else if (t && a==="state"){ t.stateOverride = el.dataset.v; recompute(); markDirty(t); render(); }
 });
-document.addEventListener("keydown", e => { if ((e.key==="Enter"||e.key===" ") && e.target.matches("td.cell")) { e.preventDefault(); e.target.click(); } });
+document.addEventListener("keydown", e => {
+  if (e.target.id==="noteIn"){ if (e.key==="Enter"){ e.preventDefault(); const t = S.byId.get(e.target.dataset.id); if (t) saveNote(t); } else if (e.key==="Escape"){ S.noteEdit = null; render(); } return; } if ((e.key==="Enter"||e.key===" ") && e.target.matches("td.cell")) { e.preventDefault(); e.target.click(); } });
 document.addEventListener("change", e => {
   const el = e.target;
   if (el.id==="backupIn"){ const f0 = el.files[0]; el.value=""; if (f0) importBackup(f0); return; }
@@ -1380,9 +1398,10 @@ document.addEventListener("change", e => {
   const a = el.dataset.act; if (!a) return;
   const f = S.files.find(x=>x.id===el.dataset.id);
   if (a==="setCat"){
-    const t = S.byId.get(el.dataset.id); if (!t) return; t.cat = el.value; markDirty(t);
-    const rk = keyOf(t); if (rk && el.value!==PENDING_CAT){ S.rules.cat[rk] = el.value; recompute(); settingsChanged(); }
-    render(); return;
+    const t = S.byId.get(el.dataset.id); if (!t) return;
+    if (el.value) t.cat = el.value; else delete t.cat;
+    if (t._type==="转账" && el.value && el.value!==PENDING_CAT && tDec(t)!=="消费") t.transferDecision = "消费";
+    markDirty(t); recompute(); S.msg = `已将这笔交易归入“${effCat(t)}”，仅影响这一笔。如需对该交易对象统一设置，请使用“分类规则”。`; render(); return;
   }
   if (a==="autoDup"){ S.rules.autoDup = el.checked; settingsChanged(); render(); return; }
   if (a==="bulkCat"){
