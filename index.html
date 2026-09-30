@@ -456,7 +456,7 @@ function ruleFor(t){
 }
 const tDec = t => t.transferDecision || (ruleFor(t)?.asSpend ? "消费" : null);
 const noteOf = t => t.note || ruleFor(t)?.note || "";
-const effState = tx => tx.stateOverride || tx.state;
+const effState = tx => tx.excluded ? "excluded" : (tx.stateOverride || tx.state);
 const effCat = tx => tx.cat || tx._auto?.cat || PENDING_CAT;
 
 /* ============ 退款匹配 / 疑似重复 ============ */
@@ -654,7 +654,7 @@ function rebuildFile(f){
 function fileCheck(f){
   const tx = S.txns.filter(t=>t.fileId===f.id);
   const r = f.result || {summary:[],unparsed:[],declared:[],empty:0};
-  const ok = tx.filter(t=>effState(t)==="ok").length, failed = tx.filter(t=>effState(t)==="failed").length, pend = tx.filter(t=>effState(t)==="pending").length;
+  const ok = tx.filter(t=>effState(t)==="ok").length, failed = tx.filter(t=>["failed","excluded"].includes(effState(t))).length, pend = tx.filter(t=>effState(t)==="pending").length;
   const checks = [];
   if (f.meta && f.meta.headerRow < 0) checks.push({pass:false, text:"未能识别表头。请在下方指定表头所在的行与列。"});
   else {
@@ -705,7 +705,7 @@ async function addFiles(fileList){
 function clearSamples(){ const ids = new Set(S.files.filter(f=>f.sample).map(f=>f.id)); S.files = S.files.filter(f=>!f.sample); S.txns = S.txns.filter(t=>!ids.has(t.fileId)); recompute(); }
 
 /* ============ 保存 ============ */
-const DOC_KEYS = ["id","fileId","fileName","channel","line","date","time","month","amount","dir","status","state","cp","desc","rawType","orderId","mOrderId","method","remark","raw","cat","transferDecision","refundDecision","dupDecision","stateOverride"];
+const DOC_KEYS = ["id","fileId","fileName","channel","line","date","time","month","amount","dir","status","state","cp","desc","rawType","orderId","mOrderId","method","remark","raw","cat","transferDecision","refundDecision","dupDecision","stateOverride","note","excluded"];
 const slim = t => { const o={}; for (const k of DOC_KEYS) if (k!=="fileName" && t[k]!==undefined && t[k]!=="" && t[k]!=="/" && t[k]!==null) o[k]=t[k]; if (o.raw) o.raw = o.raw.slice(0,160); return o; };
 const CHUNK = 250, CHUNK_BYTES = 180000;
 function chunkTxns(tx){
@@ -743,7 +743,7 @@ function markDirty(t){
   S.dirty.add(`${t.fileId}|${t._k}`);
   clearTimeout(dirtyTimer); dirtyTimer = setTimeout(flushDirty, 1200); renderSync();
 }
-const DEC_KEYS = ["cat","transferDecision","refundDecision","dupDecision","stateOverride","note"];
+const DEC_KEYS = ["cat","transferDecision","refundDecision","dupDecision","stateOverride","note","excluded"];
 function mergeRemote(remoteTxns, localTxns){
   const rm = new Map(remoteTxns.map(r=>[r.id, r])); let changed = false;
   for (const t of localTxns){
@@ -879,7 +879,7 @@ function loadSamples(){ for (const f of sampleFiles()){ S.files.push(f); setupFi
 /* ============ 渲染 ============ */
 const TABS = [["import","导入"],["overview","概览"],["month","月度账单"],["pivot","分类汇总"],["detail","交易明细"],["rules","分类规则"],["pending","待处理"],["failed","无效交易"],["transfer","转账与还款"],["income","收入"],["analysis","消费洞察"]];
 function renderTabs(p){
-  $("#tabs").innerHTML = TABS.map(([k,l])=>`<button role="tab" data-tab="${k}" aria-selected="${S.tab===k}">${l}${k==="pending"&&p.total?`<span class="badge">${p.total}</span>`:""}${k==="failed"?`<span class="badge dim">${S.txns.filter(t=>effState(t)==="failed").length}</span>`:""}</button>`).join("");
+  $("#tabs").innerHTML = TABS.map(([k,l])=>`<button role="tab" data-tab="${k}" aria-selected="${S.tab===k}">${l}${k==="pending"&&p.total?`<span class="badge">${p.total}</span>`:""}${k==="failed"?`<span class="badge dim">${S.txns.filter(t=>["failed","excluded"].includes(effState(t))).length}</span>`:""}</button>`).join("");
 }
 function renderSync(){
   const el = $("#sync"); const saved = S.files.filter(f=>!f.staged&&!f.sample).length;
@@ -915,7 +915,7 @@ function keyOf(t){
 function noteBlock(t){
   if (S.noteEdit===t.id) return `<div class="row" style="margin-top:6px;gap:6px"><input type="text" id="noteIn" data-id="${esc(t.id)}" value="${esc(t.note||"")}" placeholder="为这笔交易添加备注" maxlength="60" style="min-width:180px;flex:1"><button class="btn sm pri" data-act="noteSave" data-id="${esc(t.id)}">保存</button><button class="btn sm ghost" data-act="noteCancel">取消</button></div>`;
   const own = t.note, rule = !own && ruleFor(t)?.note;
-  return `<div class="notes">${own ? `<span class="chip acc">备注：${esc(own)}</span>` : rule ? `<span class="chip">规则备注：${esc(rule)}</span>` : ""}<button class="btn sm ghost notebtn" data-act="noteEdit" data-id="${esc(t.id)}">${own ? "编辑备注" : "添加备注"}</button></div>`;
+  return `<div class="notes">${own ? `<span class="chip acc">备注：${esc(own)}</span>` : rule ? `<span class="chip">规则备注：${esc(rule)}</span>` : ""}<button class="btn sm ghost notebtn" data-act="noteEdit" data-id="${esc(t.id)}">${own ? "编辑备注" : "添加备注"}</button>${t.excluded ? `<span class="chip bad">已排除 · ${esc(t.excluded.reason)}</span><button class="btn sm ghost" data-act="exRestore" data-id="${esc(t.id)}">恢复</button>` : S.exEdit===t.id ? `<span class="confirm small">排除原因 <select id="exReason"><option>重复记录</option><option>测试或误记</option><option>其他</option></select><button class="btn sm" data-act="exSave" data-id="${esc(t.id)}">确认排除</button><button class="btn sm ghost" data-act="exCancel">取消</button></span>` : `<button class="btn sm ghost notebtn" data-act="exEdit" data-id="${esc(t.id)}">排除</button>`}</div>`;
 }
 const txDesc = t => { const a = clean(t.cp) || clean(t.desc) || "—", b = clean(t.cp) && clean(t.desc) !== a ? clean(t.desc) : ""; return `${esc(a)}${b ? `<div class="muted small">${esc(b)}</div>` : ""}${noteBlock(t)}`; };
 const catSelect = (t, id, none) => `<select id="${id}" data-act="setCat" data-id="${esc(t.id)}" aria-label="分类">${none ? `<option value="" selected>${none}</option>` : ""}${[...allCats(),PENDING_CAT].map(c=>`<option ${!none && effCat(t)===c?"selected":""}>${c}</option>`).join("")}</select>`;
@@ -1018,7 +1018,7 @@ function vMonth(L){
   const cats = {}; for (const l of lines) cats[l.cat]=(cats[l.cat]||0)+l.amt;
   const catList = Object.entries(cats).sort((a,b)=>b[1]-a[1]);
   const other = S.txns.filter(t=>t.month===m && effState(t)==="ok" && ["内部转账","还款","不计收支"].includes(t._type));
-  const failed = S.txns.filter(t=>t.month===m && effState(t)==="failed").length;
+  const failed = S.txns.filter(t=>t.month===m && ["failed","excluded"].includes(effState(t))).length;
   const pend = pendingItems(); const pn = [pend.cat,pend.transfer,pend.refund,pend.dup,pend.state].flat().filter(t=>t.month===m).length;
   return `<div class="sechead" style="margin-top:24px"><h2 style="margin:0">${m.replace("-"," 年 ")} 月</h2><div class="row">
     <button class="btn sm" data-act="mPrev" ${i>=ms.length-1?"disabled":""} aria-label="上个月">← 上个月</button>
@@ -1071,7 +1071,7 @@ function vPivot(L){
 }
 function flagsOf(t){
   const f = [];
-  const st = effState(t); if (st==="failed") f.push(`<span class="chip bad">无效</span>`); if (st==="pending") f.push(`<span class="chip warn">处理中</span>`);
+  const st = effState(t); if (st==="excluded") f.push(`<span class="chip bad">已排除</span>`); if (st==="failed") f.push(`<span class="chip bad">无效</span>`); if (st==="pending") f.push(`<span class="chip warn">处理中</span>`);
   if (t._dup) f.push(autoDropped(t) ? `<span class="chip">重复 · 自动排除</span>` : isDropped(t) ? `<span class="chip">重复 · 已排除</span>` : (decided(t) ? `<span class="chip">已确认非重复</span>` : `<span class="chip warn">疑似重复</span>`));
   if (t._type==="退款"){ const r = refundRes(t); f.push(r.apply ? `<span class="chip inc">${{orig:"冲减原交易",refundMonth:"冲减退款当月",income:"计为收入",ignore:"不影响消费"}[r.apply]}</span>` : `<span class="chip warn">退款待处理</span>`); }
   if (returned(t)) f.push(`<span class="chip">已退回</span>`);
@@ -1183,7 +1183,10 @@ function applyRuleTo(match, asSpend){
 }
 function vFailed(){
   const list = S.txns.filter(t=>effState(t)==="failed").sort((a,b)=>ts(b)-ts(a));
-  return `<h2>无效交易</h2><p class="lead">以下交易未实际扣款或已关闭，单独列示，不计入任何合计。</p>${list.length?detailTable(list,false):`<p class="muted">没有无效交易。</p>`}`;
+  const ex = S.txns.filter(t=>t.excluded).sort((a,b)=>ts(b)-ts(a));
+  return `<h2>无效交易</h2><p class="lead">以下交易未实际扣款、已关闭，或由你手动排除，单独列示，不计入任何合计。</p>
+  <h3>手动排除 · ${ex.length} 笔 · ${yuan(ex.reduce((a,t)=>a+t.amount,0))}</h3>${ex.length?detailTable(ex,false):`<p class="muted small">在任意一笔交易下点按“排除”，即可将其移出统计，例如未被自动识别的重复记录。</p>`}
+  <h3>未扣款或已关闭 · ${list.length} 笔</h3>${list.length?detailTable(list,false):`<p class="muted">没有无效交易。</p>`}`;
 }
 function vTransfer(){
   const ok = t => effState(t)==="ok";
@@ -1344,6 +1347,10 @@ document.addEventListener("click", e => {
     settingsChanged(); recompute(); render();
   }
   else if (a==="noteEdit"){ S.noteEdit = id; render(); const n = $("#noteIn"); if (n){ n.focus(); n.setSelectionRange(n.value.length, n.value.length); } }
+  else if (a==="exEdit"){ S.exEdit = id; render(); }
+  else if (a==="exCancel"){ S.exEdit = null; render(); }
+  else if (t && a==="exSave"){ t.excluded = {reason: $("#exReason")?.value || "重复记录", at: new Date().toISOString().slice(0,10)}; S.exEdit = null; markDirty(t); recompute(); S.msg = `已排除这笔 ${yuan(t.amount)} 的交易，不再计入任何合计。可在“无效交易”中恢复。`; render(); }
+  else if (t && a==="exRestore"){ delete t.excluded; markDirty(t); recompute(); S.msg = "已恢复这笔交易。"; render(); }
   else if (a==="noteCancel"){ S.noteEdit = null; render(); }
   else if (t && a==="noteSave"){ saveNote(t); }
   else if (a==="ruleEdit"){ S.editK = decodeURIComponent(el.dataset.k); render(); }
