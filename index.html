@@ -211,7 +211,7 @@ const S = {
   rules:{ownNames:[], cat:{}, meta:{}, kw:[]},
   analyses:[],
   tab:"import", drill:null, f:{month:"all",channel:"all",type:"all",cat:"all",q:"",limit:300},
-  confirmDel:null, dirty:new Set(), saving:false, lastSaved:null, msg:"",
+  confirmDel:null, dirty:new Set(), touched:new Set(), saving:false, lastSaved:null, msg:"",
   catSug:{}, sugBusy:false, sugErr:"",
   anFrom:"", anTo:"", anBusy:false, anText:"", anResult:null, anErr:"",
 };
@@ -557,7 +557,7 @@ function findDups(){
     for (const b of pick){ used.add(b.id); b._dup = {with:w.id, level:"强", partial:true, basis:[`同一天、同一商户：「${clean(w.cp)||clean(w.desc)}」`, `${CHANNELS[w.channel]}这笔 ${yuan(w.amount)} 的支付方式是「${w.method}」，卡号尾号 ${l4} 与这张银行卡一致`, `银行当天拆成 ${pick.length} 笔扣款：${expr} = ${yuan(w.amount)}，正好等于${CHANNELS[w.channel]}这笔金额`]}; }
   }
 }
-const decided = t => !!(t._dup && t.dupDecision && t.dupDecision.with===t._dup.with);
+const decided = t => !!(t._dup && t.dupDecision);
 const autoDupOn = () => S.rules.autoDup !== false;
 function isDropped(t){ if (!t._dup) return false; if (decided(t)) return t.dupDecision.v==="dup"; return autoDupOn() && t._dup.level==="强"; }
 const autoDropped = t => !!t._dup && !decided(t) && autoDupOn() && t._dup.level==="强";
@@ -734,20 +734,53 @@ function markDirty(t){
   const f = S.files.find(x=>x.id===t.fileId);
   if (!f || f.staged || f.sample || !S.db) return;
   if (t._k == null) return;
+  S.touched.add(t.id);
   S.dirty.add(`${t.fileId}|${t._k}`);
   clearTimeout(dirtyTimer); dirtyTimer = setTimeout(flushDirty, 1200); renderSync();
 }
+const DEC_KEYS = ["cat","transferDecision","refundDecision","dupDecision","stateOverride","note"];
+function mergeRemote(remoteTxns, localTxns){
+  const rm = new Map(remoteTxns.map(r=>[r.id, r])); let changed = false;
+  for (const t of localTxns){
+    if (S.touched.has(t.id)) continue;
+    const r = rm.get(t.id); if (!r) continue;
+    for (const k of DEC_KEYS){
+      const a = JSON.stringify(t[k] ?? null), b = JSON.stringify(r[k] ?? null);
+      if (a !== b){ if (r[k] === undefined) delete t[k]; else t[k] = structuredClone(r[k]); changed = true; }
+    }
+  }
+  return changed;
+}
+let lastRefresh = 0;
+async function refreshRemote(){
+  if (!S.db || !canStore() || S.saving || S.dirty.size || Date.now() - lastRefresh < 8000) return;
+  lastRefresh = Date.now();
+  try {
+    const snap = await col().limit(1000).get(); let changed = false;
+    for (const d of snap.docs){
+      if (d.id.startsWith("tx_")){ const v = d.data(); const part = S.txns.filter(t=>t.fileId===v.fileId && t._k===v.k); if (mergeRemote(v.txns||[], part)) changed = true; }
+      else if (d.id==="settings"){ const v = d.data(); const next = JSON.stringify([v.cat||{}, v.meta||{}, v.kw||[], v.autoDup!==false]); if (next !== JSON.stringify([S.rules.cat, S.rules.meta, S.rules.kw, autoDupOn()])){ S.rules.cat = v.cat||{}; S.rules.meta = v.meta||{}; S.rules.kw = v.kw||[]; S.rules.autoDup = v.autoDup!==false; changed = true; } }
+    }
+    if (changed){ recompute(); render(); }
+  } catch(e){}
+}
+document.addEventListener("visibilitychange", () => { if (document.visibilityState==="visible") refreshRemote(); });
+window.addEventListener("focus", refreshRemote);
 async function flushDirty(){
   if (S.saving) { dirtyTimer = setTimeout(flushDirty, 800); return; }
-  S.saving = true; renderSync();
+  S.saving = true; renderSync(); let adopted = false;
   try {
     for (const key of [...S.dirty]){
       const [fid,k] = key.split("|"); const part = S.txns.filter(t=>t.fileId===fid && t._k===+k);
-      await col().doc(`tx_${fid}_${k}`).set({fileId:fid, k:+k, txns:part.map(slim)}); S.dirty.delete(key);
+      const ref = col().doc(`tx_${fid}_${k}`);
+      // 先读云端这一块，把别的窗口/设备刚保存的处理结果合并进来，再写回，避免互相覆盖
+      try { const snap = await ref.get(); if (snap.exists && mergeRemote(snap.data()?.txns||[], part)) adopted = true; } catch(e){}
+      await ref.set({fileId:fid, k:+k, txns:part.map(slim)}); S.dirty.delete(key);
+      for (const t of part) S.touched.delete(t.id);
     }
     S.lastSaved = new Date();
   } catch(e){ S.msg = saveErr(e); }
-  S.saving = false; renderSync();
+  S.saving = false; if (adopted){ recompute(); render(); } else renderSync();
 }
 let settingsTimer=null;
 function settingsChanged(){ clearTimeout(settingsTimer); settingsTimer = setTimeout(()=>saveSettings().catch(e=>{S.msg=saveErr(e);render();}), 800); }
@@ -1029,7 +1062,7 @@ function vPivot(L){
 function flagsOf(t){
   const f = [];
   const st = effState(t); if (st==="failed") f.push(`<span class="chip bad">失败/关闭</span>`); if (st==="pending") f.push(`<span class="chip warn">处理中</span>`);
-  if (t._dup) f.push(autoDropped(t) ? `<span class="chip">重复（自动），不计入</span>` : isDropped(t) ? `<span class="chip">重复，不计入</span>` : (t.dupDecision?.with===t._dup.with ? `<span class="chip">已确认非重复</span>` : `<span class="chip warn">疑似重复</span>`));
+  if (t._dup) f.push(autoDropped(t) ? `<span class="chip">重复（自动），不计入</span>` : isDropped(t) ? `<span class="chip">重复，不计入</span>` : (decided(t) ? `<span class="chip">已确认非重复</span>` : `<span class="chip warn">疑似重复</span>`));
   if (t._type==="退款"){ const r = refundRes(t); f.push(r.apply ? `<span class="chip inc">${{orig:"冲减原交易",refundMonth:"冲减退款当月",income:"计为收入",ignore:"不影响消费"}[r.apply]}</span>` : `<span class="chip warn">退款待确认</span>`); }
   if (returned(t)) f.push(`<span class="chip">已退回</span>`);
   else if (t._type==="转账") f.push(tDec(t) ? `<span class="chip">${{"消费":"已判定为消费","非消费":"非消费","内部":"本人账户"}[tDec(t)]}${!t.transferDecision?"（规则）":""}</span>` : `<span class="chip warn">转账待判定</span>`);
@@ -1083,7 +1116,7 @@ function vPending(L,p){
   ${autoSection()}
   ${p.dup.length ? head("疑似重复", p.dup.length, "同一笔钱可能被记了两次（两份账单时间段重叠，或者钱包和银行各记一次）。系统不会自动删除，请看依据后选择。", strong.length?`<button class="btn sm pri" data-act="bulkDup">依据为「强」的 ${strong.length} 笔全部按重复处理</button>`:"") + `<div class="pgroup">${p.dup.slice(0,lim).map(t=>{const a=S.byId.get(t._dup.with);return it(t, `<div class="small">可能与这笔重复：${CHANNELS[a.channel]} · ${a.date} ${a.time.slice(0,5)} · ${esc(clean(a.cp)||clean(a.desc))} · ${yuan(a.amount)} <span class="src">（${src(a)}）</span></div><ul class="basis">${t._dup.basis.map(b=>`<li>${esc(b)}</li>`).join("")}<li>依据强度：${t._dup.level}</li></ul>`,
     `<button class="btn sm pri" data-act="dup" data-id="${esc(t.id)}" data-v="dup">是重复，只计一次</button><button class="btn sm" data-act="dup" data-id="${esc(t.id)}" data-v="keep">不是重复，两笔都计入</button>`)}).join("")}</div>${more(p.dup.length)}` : ""}
-  ${p.refund.length ? head("退款待匹配", p.refund.length, "跨月退款或找不到原交易的退款，先不计入，等你决定怎么处理。", withMatch.length?`<button class="btn sm pri" data-act="bulkRefund">有原交易的 ${withMatch.length} 笔全部冲减原交易月份</button>`:"") + `<div class="pgroup">${p.refund.slice(0,lim).map(t=>{const r=refundRes(t);const o=r.match&&S.byId.get(r.match);const cands=(t._refund?.cands||[]).slice(0,4);return it(t, `<div class="small">${esc(r.reason||"")}${o?`：${o.date} · ${esc(clean(o.cp))} · ${esc(clean(o.desc))} · ${yuan(o.amount)}（${effCat(o)}）`:""}</div>${!o&&cands.length?`<div class="small">可能的原交易：${cands.map(c=>{const x=S.byId.get(c.id);return `<button class="btn sm ghost" data-act="refund" data-id="${esc(t.id)}" data-v="orig" data-m="${esc(x.id)}">${x.date} ${esc(clean(x.cp))} ${yuan(x.amount)}</button>`}).join("")}</div>`:""}`,
+  ${p.refund.length ? head("退款待匹配", p.refund.length, "跨月退款或找不到原交易的退款，先不计入，等你决定怎么处理。", (withMatch.length?`<button class="btn sm pri" data-act="bulkRefund">有原交易的 ${withMatch.length} 笔全部冲减原交易月份</button>`:"") + (p.refund.length-withMatch.length ? `<button class="btn sm" data-act="bulkRefundIgnore">找不到原交易的 ${p.refund.length-withMatch.length} 笔全部不计入</button>` : "")) + `<div class="pgroup">${p.refund.slice(0,lim).map(t=>{const r=refundRes(t);const o=r.match&&S.byId.get(r.match);const cands=(t._refund?.cands||[]).slice(0,4);return it(t, `<div class="small">${esc(r.reason||"")}${o?`：${o.date} · ${esc(clean(o.cp))} · ${esc(clean(o.desc))} · ${yuan(o.amount)}（${effCat(o)}）`:""}</div>${!o&&cands.length?`<div class="small">可能的原交易：${cands.map(c=>{const x=S.byId.get(c.id);return `<button class="btn sm ghost" data-act="refund" data-id="${esc(t.id)}" data-v="orig" data-m="${esc(x.id)}">${x.date} ${esc(clean(x.cp))} ${yuan(x.amount)}</button>`}).join("")}</div>`:""}`,
     (o?`<button class="btn sm pri" data-act="refund" data-id="${esc(t.id)}" data-v="orig" data-m="${esc(o.id)}">冲减原交易月份（${o.month}）</button><button class="btn sm" data-act="refund" data-id="${esc(t.id)}" data-v="refundMonth" data-m="${esc(o.id)}">冲减到退款当月（${t.month}）</button>`:"")+`<button class="btn sm" data-act="refund" data-id="${esc(t.id)}" data-v="income">当作收入</button><button class="btn sm ghost" data-act="refund" data-id="${esc(t.id)}" data-v="ignore">不计入</button>`)}).join("")}</div>${more(p.refund.length)}` : ""}
   ${gT.length ? head("转账：是不是消费？", p.transfer.length, "转给他人的钱，可能是消费（AA、房租、代购），也可能是借出或给家人。按对方分组，确认前不计入消费。") + `<div class="pgroup">${gT.slice(0,lim).map(g=>grp(g, "",
     `<button class="btn sm pri" data-act="bulkTransfer" data-k="${encK(g.k)}" data-v="消费">${g.list.length>1?"全部":""}是消费</button><button class="btn sm" data-act="bulkTransfer" data-k="${encK(g.k)}" data-v="非消费">${g.list.length>1?"全部":""}不是消费（借出/给家人等）</button><button class="btn sm ghost" data-act="bulkTransfer" data-k="${encK(g.k)}" data-v="内部">转给本人账户</button>`)).join("")}</div>${more(gT.length)}` : ""}
@@ -1313,6 +1346,7 @@ document.addEventListener("click", e => {
   else if (a==="kwDel"){ S.rules.kw.splice(+el.dataset.i, 1); recompute(); settingsChanged(); render(); }
   else if (a==="pmore"){ S.pLimit = (S.pLimit||40) + 40; render(); }
   else if (a==="bulkDup"){ for (const t of pendingItems().dup) if (t._dup.level==="强"){ t.dupDecision = {with:t._dup.with, v:"dup"}; markDirty(t); } render(); }
+  else if (a==="bulkRefundIgnore"){ let n = 0; for (const t of pendingItems().refund){ if (!refundRes(t).match){ t.refundDecision = {apply:"ignore", match:null}; markDirty(t); n++; } } recompute(); S.msg = `已把 ${n} 笔找不到原交易的退款标为不计入，并已保存`; render(); }
   else if (a==="bulkRefund"){ for (const t of pendingItems().refund){ const r = refundRes(t); if (r.match){ t.refundDecision = {apply:"orig", match:r.match}; markDirty(t); } } recompute(); render(); }
   else if (a==="bulkTransfer"){ const k = decodeURIComponent(el.dataset.k); for (const t of pendingItems().transfer) if (gkey(t)===k){ t.transferDecision = el.dataset.v; markDirty(t); } render(); }
   else if (t && a==="dup"){ t.dupDecision = {with:t._dup.with, v:el.dataset.v}; markDirty(t); render(); }
@@ -1368,7 +1402,8 @@ function idbStore(){
   const open = () => dbp || (dbp = new Promise((ok,no)=>{ const r = indexedDB.open("ledger",1); r.onupgradeneeded = () => r.result.createObjectStore("docs"); r.onsuccess = () => ok(r.result); r.onerror = () => no(r.error); }));
   const run = async (mode, fn) => { const d = await open(); return new Promise((ok,no)=>{ const t = d.transaction("docs", mode); fn(t.objectStore("docs")); t.oncomplete = () => ok(); t.onerror = () => no(t.error); }); };
   const all = async () => { const d = await open(); return new Promise((ok,no)=>{ const out = []; const c = d.transaction("docs").objectStore("docs").openCursor(); c.onsuccess = () => { const cur = c.result; if (cur){ const v = cur.value, k = cur.key; out.push({id:k, data:()=>v}); cur.continue(); } else ok({docs:out}); }; c.onerror = () => no(c.error); }); };
-  return { collection: () => ({ doc: id => ({ set: data => run("readwrite", st=>st.put(JSON.parse(JSON.stringify(data)), id)), delete: () => run("readwrite", st=>st.delete(id)) }), limit: () => ({ get: all }) }) };
+  const getOne = async id => { const d = await open(); return new Promise((ok,no)=>{ const r = d.transaction("docs").objectStore("docs").get(id); r.onsuccess = () => ok({exists: r.result!==undefined, data: () => r.result}); r.onerror = () => no(r.error); }); };
+  return { collection: () => ({ doc: id => ({ get: () => getOne(id), set: data => run("readwrite", st=>st.put(JSON.parse(JSON.stringify(data)), id)), delete: () => run("readwrite", st=>st.delete(id)) }), limit: () => ({ get: all }) }) };
 }
 
 /* ============ 备份与迁移 ============ */
@@ -1396,6 +1431,7 @@ function supaStore(sb, uid){
   const T = () => sb.from("ledger_docs");
   return { collection: () => ({
     doc: id => ({
+      get: async () => { const {data, error} = await T().select("data").eq("id", id).maybeSingle(); if (error) throw error; return {exists: !!data, data: () => data?.data}; },
       set: async data => { const {error} = await T().upsert({user_id:uid, id, data, updated_at:new Date().toISOString()}, {onConflict:"user_id,id"}); if (error) throw error; },
       delete: async () => { const {error} = await T().delete().eq("id", id); if (error) throw error; },
     }),
