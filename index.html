@@ -184,6 +184,7 @@ function fmtDate(d, withTime){ const s = `${d.getFullYear()}-${pad(d.getMonth()+
 const CHANNELS = {alipay:"支付宝", wechat:"微信", bank:"银行卡/信用卡", other:"其他", income:"收入"};
 const CATS = ["餐饮","外卖","日用","购物","交通","住房","水电通讯","订阅会员","游戏充值","利息手续费","娱乐","运动健康","美容个护","医疗","教育","旅行","人情","其他"];
 const PENDING_CAT = "待确认";
+const allCats = () => [...CATS, ...(S.rules.customCats||[]).filter(c=>!CATS.includes(c))];
 
 const FIELDS = {
   time:{label:"交易时间", syn:["交易时间","交易创建时间","付款时间","交易日期","记账日期","入账日期","交易日","消费日期","下单时间","日期","时间","发生时间","记账时间","到账时间"]},
@@ -208,7 +209,7 @@ const S = {
   mode:"connecting", db:null, uid:null, sampleCap:null, downloads:null,
   files:[],            // {id,name,channel,staged,sample,sheets,sheet,meta,check,ack,userTotal,order}
   txns:[], byId:new Map(),
-  rules:{ownNames:[], cat:{}, meta:{}, kw:[]},
+  rules:{ownNames:[], cat:{}, meta:{}, kw:[], customCats:[]},
   analyses:[],
   tab:"import", drill:null, f:{month:"all",channel:"all",type:"all",cat:"all",q:"",limit:300},
   confirmDel:null, dirty:new Set(), touched:new Set(), saving:false, lastSaved:null, msg:"",
@@ -728,7 +729,7 @@ async function saveStaged(){
   S.saving = false; render();
 }
 function saveErr(e){ return e?.code==="quota_exceeded" ? "存储空间已满，请先删除一些旧账单再保存" : `保存失败：${e?.message||e}`; }
-async function saveSettings(){ if (S.db && S.uid) await col().doc("settings").set({ownNames:S.rules.ownNames, cat:S.rules.cat, meta:S.rules.meta, kw:S.rules.kw, autoDup:autoDupOn()}); }
+async function saveSettings(){ if (S.db && S.uid) await col().doc("settings").set({ownNames:S.rules.ownNames, cat:S.rules.cat, meta:S.rules.meta, kw:S.rules.kw, customCats:S.rules.customCats, autoDup:autoDupOn()}); }
 let dirtyTimer = null;
 function markDirty(t){
   const f = S.files.find(x=>x.id===t.fileId);
@@ -759,7 +760,7 @@ async function refreshRemote(){
     const snap = await col().limit(1000).get(); let changed = false;
     for (const d of snap.docs){
       if (d.id.startsWith("tx_")){ const v = d.data(); const part = S.txns.filter(t=>t.fileId===v.fileId && t._k===v.k); if (mergeRemote(v.txns||[], part)) changed = true; }
-      else if (d.id==="settings"){ const v = d.data(); const next = JSON.stringify([v.cat||{}, v.meta||{}, v.kw||[], v.autoDup!==false]); if (next !== JSON.stringify([S.rules.cat, S.rules.meta, S.rules.kw, autoDupOn()])){ S.rules.cat = v.cat||{}; S.rules.meta = v.meta||{}; S.rules.kw = v.kw||[]; S.rules.autoDup = v.autoDup!==false; changed = true; } }
+      else if (d.id==="settings"){ const v = d.data(); const next = JSON.stringify([v.cat||{}, v.meta||{}, v.kw||[], v.autoDup!==false, v.customCats||[]]); if (next !== JSON.stringify([S.rules.cat, S.rules.meta, S.rules.kw, autoDupOn(), S.rules.customCats||[]])){ S.rules.cat = v.cat||{}; S.rules.meta = v.meta||{}; S.rules.kw = v.kw||[]; S.rules.customCats = v.customCats||[]; S.rules.autoDup = v.autoDup!==false; changed = true; } }
     }
     if (changed){ recompute(); render(); }
   } catch(e){}
@@ -797,7 +798,7 @@ async function loadAll(){
   const imps = [], chunks = [];
   for (const d of snap.docs){
     const v = d.data();
-    if (d.id==="settings"){ S.rules.ownNames = v.ownNames||[]; S.rules.cat = v.cat||{}; S.rules.meta = v.meta||{}; S.rules.kw = v.kw||[]; S.rules.autoDup = v.autoDup !== false; }
+    if (d.id==="settings"){ S.rules.ownNames = v.ownNames||[]; S.rules.cat = v.cat||{}; S.rules.meta = v.meta||{}; S.rules.kw = v.kw||[]; S.rules.customCats = v.customCats||[]; S.rules.autoDup = v.autoDup !== false; }
     else if (d.id.startsWith("imp_")) imps.push(v);
     else if (d.id.startsWith("tx_")) chunks.push(v);
     else if (d.id.startsWith("an_")) S.analyses.push({id:d.id, ...v});
@@ -908,7 +909,7 @@ function keyOf(t){
   return k || clean(t.cp) || clean(t.desc);
 }
 const txDesc = t => { const a = clean(t.cp) || clean(t.desc) || "—", b = clean(t.cp) && clean(t.desc) !== a ? clean(t.desc) : ""; const n = noteOf(t); return `${esc(a)}${b ? `<div class="muted small">${esc(b)}</div>` : ""}${n ? `<div><span class="chip acc">备注：${esc(n)}</span></div>` : ""}`; };
-const catSelect = (t, id) => `<select id="${id}" data-act="setCat" data-id="${esc(t.id)}" aria-label="分类">${[...CATS,PENDING_CAT].map(c=>`<option ${effCat(t)===c?"selected":""}>${c}</option>`).join("")}</select>`;
+const catSelect = (t, id) => `<select id="${id}" data-act="setCat" data-id="${esc(t.id)}" aria-label="分类">${[...allCats(),PENDING_CAT].map(c=>`<option ${effCat(t)===c?"selected":""}>${c}</option>`).join("")}</select>`;
 
 function vImport(L){
   const staged = S.files.filter(f=>f.staged), saved = S.files.filter(f=>!f.staged);
@@ -1042,7 +1043,7 @@ function emptyNote(){ return `<div class="panel" style="margin-top:20px"><h3 sty
 
 function vPivot(L){
   const ms = [...new Set(L.lines.map(l=>l.month))].sort().reverse(); if (!ms.length) return emptyNote();
-  const cats = [...CATS, PENDING_CAT].filter(c=>L.lines.some(l=>l.cat===c));
+  const cats = [...new Set([...allCats(),PENDING_CAT,...L.lines.map(l=>l.cat)])].filter(c=>L.lines.some(l=>l.cat===c));
   const v = {}; for (const l of L.lines){ const k=l.cat+"|"+l.month; v[k]=(v[k]||0)+l.amt; }
   const rowT = c => ms.reduce((s,m)=>s+(v[c+"|"+m]||0),0), colT = m => cats.reduce((s,c)=>s+(v[c+"|"+m]||0),0);
   const gc = globalCheck(L); const d = S.drill;
@@ -1078,7 +1079,7 @@ function vDetail(){
     <select id="fMonth" data-act="filter" data-k="month" aria-label="月份"><option value="all">全部月份</option>${months().map(m=>`<option ${f.month===m?"selected":""}>${m}</option>`).join("")}</select>
     <select id="fChannel" data-act="filter" data-k="channel" aria-label="渠道"><option value="all">全部渠道</option>${Object.entries(CHANNELS).map(([k,l])=>`<option value="${k}" ${f.channel===k?"selected":""}>${l}</option>`).join("")}</select>
     <select id="fType" data-act="filter" data-k="type" aria-label="类型"><option value="all">全部类型</option>${types.map(x=>`<option ${f.type===x?"selected":""}>${x}</option>`).join("")}</select>
-    <select id="fCat" data-act="filter" data-k="cat" aria-label="分类"><option value="all">全部分类</option>${[...CATS,PENDING_CAT].map(x=>`<option ${f.cat===x?"selected":""}>${x}</option>`).join("")}</select>
+    <select id="fCat" data-act="filter" data-k="cat" aria-label="分类"><option value="all">全部分类</option>${[...allCats(),PENDING_CAT].map(x=>`<option ${f.cat===x?"selected":""}>${x}</option>`).join("")}</select>
     <input type="text" id="fQ" data-act="filterQ" placeholder="搜索对方、说明" value="${esc(f.q)}" style="min-width:160px" class="grow">
     <span class="small muted">${list.length} 笔 · 金额合计 ${yuan(list.reduce((s,t)=>s+(t.dir==="支出"?t.amount:t.dir==="收入"?-t.amount:0),0))}（支出为正）</span>
   </div>
@@ -1122,7 +1123,7 @@ function vPending(L,p){
     `<button class="btn sm pri" data-act="bulkTransfer" data-k="${encK(g.k)}" data-v="消费">${g.list.length>1?"全部":""}是消费</button><button class="btn sm" data-act="bulkTransfer" data-k="${encK(g.k)}" data-v="非消费">${g.list.length>1?"全部":""}不是消费（借出/给家人等）</button><button class="btn sm ghost" data-act="bulkTransfer" data-k="${encK(g.k)}" data-v="内部">转给本人账户</button>`)).join("")}</div>${more(gT.length)}` : ""}
   ${gC.length ? head("分类待确认", p.cat.length, "没有命中分类规则的消费，暂时计入「待确认」分类。给一个对方选好分类后，这个对方的所有交易（包括以后上传的）都会用这个分类。",
     (S.sampleCap ? `<button class="btn sm" data-act="suggestCat" ${S.sugBusy?"disabled":""}>${S.sugBusy?"Claude 正在看…":"请 Claude 给分类建议"}</button>` : "") + (gC.some(g=>S.catSug[g.k]) ? `<button class="btn sm pri" data-act="acceptSug">接受全部 ${gC.filter(g=>S.catSug[g.k]).length} 条建议</button>` : "")) + (S.sugErr?`<p class="small" style="color:var(--bad)">${esc(S.sugErr)}</p>`:"") + `<div class="pgroup">${gC.slice(0,lim).map(g=>grp(g, S.catSug[g.k] ? `<div class="small"><span class="chip acc">Claude 建议：${esc(S.catSug[g.k])}</span></div>` : "",
-    `<select id="gc-${encK(g.k)}" data-act="bulkCat" data-k="${encK(g.k)}" aria-label="分类"><option value="">选择分类…</option>${CATS.map(c=>`<option>${c}</option>`).join("")}</select>${S.catSug[g.k]?`<button class="btn sm" data-act="oneSug" data-k="${encK(g.k)}">用建议「${esc(S.catSug[g.k])}」</button>`:""}`)).join("")}</div>${more(gC.length)}` : ""}
+    `<select id="gc-${encK(g.k)}" data-act="bulkCat" data-k="${encK(g.k)}" aria-label="分类"><option value="">选择分类…</option>${allCats().map(c=>`<option>${c}</option>`).join("")}</select>${S.catSug[g.k]?`<button class="btn sm" data-act="oneSug" data-k="${encK(g.k)}">用建议「${esc(S.catSug[g.k])}」</button>`:""}`)).join("")}</div>${more(gC.length)}` : ""}
   ${p.state.length ? head("状态处理中", p.state.length, "交易还在处理中，不计入任何合计。") + `<div class="pgroup">${p.state.map(t=>it(t, `<div class="small muted">状态：${esc(t.status)}</div>`,
     `<button class="btn sm" data-act="state" data-id="${esc(t.id)}" data-v="ok">按成功计入</button><button class="btn sm ghost" data-act="state" data-id="${esc(t.id)}" data-v="failed">按失败处理</button>`)).join("")}</div>` : ""}`;
 }
@@ -1138,8 +1139,12 @@ function vRules(){
   const lim = S.rLimit || 50;
   const catOf = g => { const c = {}; for (const t of g.list) if (t._type==="消费" || tDec(t)==="消费") c[effCat(t)] = (c[effCat(t)]||0) + 1; const e = Object.entries(c).sort((a,b)=>b[1]-a[1]); return e.length ? e.map(([k,n])=>e.length>1?`${k}×${n}`:k).join("、") : "（转账，未算消费）"; };
   const kwCount = r => S.txns.filter(t=>[t.cp,t.desc,t.rawType].join(" ").includes(r.kw)).length;
-  const catOpts = sel => `<option value="">不指定分类</option>` + CATS.map(c=>`<option ${sel===c?"selected":""}>${c}</option>`).join("");
+  const catOpts = sel => `<option value="">不指定分类</option>` + allCats().map(c=>`<option ${sel===c?"selected":""}>${c}</option>`).join("");
   return `<h2>分类规则</h2><p class="lead">按「交易对方」或「关键词」设置分类、备注，以及转账要不要算消费。保存后立即作用到已有的全部交易，以后上传的账单也会自动套用。对方规则优先于关键词规则，关键词规则优先于系统内置规则。</p>
+  <div class="panel" style="margin-bottom:14px"><h3 style="margin-top:0">自定义分类</h3><p class="small muted" style="margin:0 0 8px">加好的分类会出现在所有「选择分类」的下拉框里，也会用于分类汇总、支出分析和 Claude 分类建议。</p>
+    <div class="row">${allCats().map(c=>(S.rules.customCats||[]).includes(c) ? `<span class="chip acc">${esc(c)} <button class="btn sm ghost" style="padding:0 4px" data-act="catDel" data-c="${encK(c)}" aria-label="删除分类 ${esc(c)}">×</button></span>` : `<span class="chip">${esc(c)}</span>`).join(" ")}</div>
+    <div class="row" style="margin-top:10px"><input type="text" id="newCat" placeholder="新分类名称，例如：宠物、化妆品、学习" maxlength="12" style="width:240px"><button class="btn pri sm" data-act="catAdd">添加分类</button></div>
+  </div>
   <div class="panel"><h3 style="margin-top:0">关键词规则</h3><p class="small muted" style="margin:0 0 8px">对方名称或商品说明里包含这个词，就套用这条规则。例如关键词「天梯」可以同时匹配「广州天梯网络科技有限公司」和「天梯互娱」。</p>
     <div class="row"><input type="text" id="kwText" placeholder="关键词，例如：天梯" style="width:160px"><select id="kwCat" aria-label="分类">${catOpts("")}</select><input type="text" id="kwNote" placeholder="备注（选填）" class="grow" style="min-width:140px"><label class="small"><input type="checkbox" id="kwSpend"> 转账也算消费</label><button class="btn pri sm" data-act="kwAdd">添加规则</button></div>
     ${S.rules.kw.length ? `<div class="tw" style="margin-top:10px"><table><thead><tr><th>关键词</th><th>分类</th><th>备注</th><th>转账算消费</th><th class="n">匹配</th><th></th></tr></thead><tbody>${S.rules.kw.map((r,i)=>`<tr><td><strong>${esc(r.kw)}</strong></td><td>${esc(r.cat||"—")}</td><td class="small">${esc(r.note||"—")}</td><td>${r.asSpend?"是":"—"}</td><td class="n">${kwCount(r)} 笔</td><td><button class="btn sm ghost" data-act="kwDel" data-i="${i}">删除</button></td></tr>`).join("")}</tbody></table></div>` : ""}
@@ -1266,14 +1271,14 @@ async function suggestCats(){
   if (!groups.length) return;
   S.sugBusy = true; S.sugErr = ""; render();
   const items = groups.map(g=>({对方:g.k, 说明:[...new Set(g.list.map(t=>clean(t.desc)).filter(Boolean))].slice(0,3), 交易类型:g.list[0].rawType, 笔数:g.list.length, 平均金额:plain(Math.round(g.sum/g.list.length))}));
-  const prompt = `你在帮用户给消费记录分类。可选分类只有：${CATS.join("、")}，以及「待确认」。
+  const prompt = `你在帮用户给消费记录分类。可选分类只有：${allCats().join("、")}，以及「待确认」。
 根据对方名称和商品说明判断（有中文、英文、马来西亚、埃及、韩国等地的商户名）。个人收款码（像人名、「二维码收款」）、判断不出的，一律给「待确认」，不要猜。
 只返回 JSON：{"建议":{"对方名称":"分类", ...}}，键必须和输入的「对方」完全一致。
 ${JSON.stringify(items)}`;
   try {
     const res = await S.sampleCap.json(prompt, {modelTier:"quick"});
     const sug = res?.建议 || {}; let n = 0;
-    for (const g of groups){ const v = sug[g.k]; if (v && CATS.includes(v)){ S.catSug[g.k] = v; n++; } }
+    for (const g of groups){ const v = sug[g.k]; if (v && allCats().includes(v)){ S.catSug[g.k] = v; n++; } }
     if (!n) S.sugErr = "Claude 没有给出有把握的建议，这些还需要你手动选择。";
   } catch(e){ S.sugErr = e?.code==="not_granted" ? "没有获得调用 Claude 的授权。" : e?.code==="rate_limited" ? "请求太频繁，请稍后再试。" : `获取建议失败：${e?.message||e}`; }
   S.sugBusy = false; render();
@@ -1286,7 +1291,7 @@ async function exportXlsx(){
   const H = ["日期","时间","渠道","对方","说明","备注","类型","分类","收/支","金额","状态","来源文件","原始行号","交易单号"];
   const wb = XLSX.utils.book_new(); const add = (name, aoa) => XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), name);
   add("月度总览", [["月份","消费","退款冲减","净消费","收入","结余","内部转账","还款"], ...Object.keys(ms).sort().map(k=>{const m=ms[k];return [k,plain(m.spend),plain(m.refund),plain(m.spend-m.refund),plain(m.income),plain(m.income-m.spend+m.refund),plain(m.internal),plain(m.repay)]})]);
-  const mk = [...new Set(L.lines.map(l=>l.month))].sort(); const cats=[...CATS,PENDING_CAT].filter(c=>L.lines.some(l=>l.cat===c));
+  const mk = [...new Set(L.lines.map(l=>l.month))].sort(); const cats=[...new Set([...allCats(),PENDING_CAT,...L.lines.map(l=>l.cat)])].filter(c=>L.lines.some(l=>l.cat===c));
   add("分类汇总", [["分类",...mk,"合计"], ...cats.map(c=>{const vs=mk.map(m=>plain(L.lines.filter(l=>l.cat===c&&l.month===m).reduce((s,l)=>s+l.amt,0)));return [c,...vs,+vs.reduce((a,b)=>a+b,0).toFixed(2)]})]);
   add("消费明细", [["计入月份","分类","计入方式","计入金额",...H], ...L.lines.map(l=>[l.month,l.cat,l.kind,plain(l.amt),...row(l.t)])]);
   add("全部明细", [H, ...S.txns.slice().sort((a,b)=>ts(a)-ts(b)).map(row)]);
@@ -1342,6 +1347,18 @@ document.addEventListener("click", e => {
     S.rules.kw = S.rules.kw.filter(x=>x.kw!==kw).concat([r]);
     const n = applyRuleTo(t => !S.rules.cat[keyOf(t)] && [t.cp,t.desc,t.rawType].join(" ").includes(kw), r.asSpend);
     S.msg = `已添加关键词规则「${kw}」，匹配 ${n} 笔交易`; render();
+  }
+  else if (a==="catAdd"){
+    const c = $("#newCat").value.trim();
+    if (!c){ S.msg = "请先填写分类名称"; render(); return; }
+    if (c===PENDING_CAT || allCats().includes(c)){ S.msg = `「${c}」已经存在`; render(); return; }
+    S.rules.customCats = [...(S.rules.customCats||[]), c]; settingsChanged(); S.msg = `已添加分类「${c}」，现在可以在下拉框里选它了`; render();
+  }
+  else if (a==="catDel"){
+    const c = decodeURIComponent(el.dataset.c);
+    const used = S.txns.filter(t=>t.cat===c).length + Object.values(S.rules.cat).filter(v=>v===c).length + S.rules.kw.filter(r=>r.cat===c).length;
+    if (used){ S.msg = `「${c}」还有 ${used} 处在用（交易或规则），先把它们改成别的分类再删除`; render(); return; }
+    S.rules.customCats = (S.rules.customCats||[]).filter(x=>x!==c); settingsChanged(); S.msg = `已删除分类「${c}」`; render();
   }
   else if (a==="kwDel"){ S.rules.kw.splice(+el.dataset.i, 1); recompute(); settingsChanged(); render(); }
   else if (a==="pmore"){ S.pLimit = (S.pLimit||40) + 40; render(); }
