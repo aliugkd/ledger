@@ -1,4 +1,4 @@
-<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"></head><body style="margin:0"><title>多渠道账本</title>
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"></head><body style="margin:0"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script><script>window.LEDGER_CLOUD={"url": "https://leuhwnctthketzyhqohx.supabase.co", "key": "sb_publishable_ha2WH4kJ1TnLpBH4jyHKPw_ZRcFtCte"};</script><title>多渠道账本</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Noto+Sans+SC:wght@400;500;700;900&display=swap">
@@ -133,6 +133,7 @@ details>summary{cursor:pointer;color:var(--accent);font-size:13px;margin-top:8px
     <h1><span class="mark">¥</span>多渠道账本</h1>
     <span class="sync" id="sync">正在连接…</span>
     <button class="btn sm" id="exportBtn" data-act="export">导出 Excel</button>
+    <button class="btn sm" id="logoutBtn" data-act="logout" hidden>退出登录</button>
   </div>
   <nav class="tabs" id="tabs" role="tablist"></nav>
 </header>
@@ -847,6 +848,8 @@ function renderSync(){
   let s;
   if (S.mode==="connecting") s = "正在连接…";
   else if (S.mode==="local") s = "未连接保存服务：数据只在这个页面里，关闭后会丢失";
+  else if (S.mode==="login") s = "云端版 · 请先登录";
+  else if (S.mode==="cloud" && !S.saving && !S.dirty.size) s = `云端版 · ${S.email} · ${saved} 份账单 · 其他设备登录同一账号即可看到`;
   else if (S.mode==="device" && !S.saving && !S.dirty.size) s = (location.protocol==="file:" ? "离线版 · 数据保存在这台电脑的浏览器里" : "网页版 · 数据保存在当前浏览器里，换设备需用备份迁移") + ` · ${saved} 份账单`;
   else if (S.saving) s = "正在保存…";
   else if (S.dirty.size) s = `有 ${S.dirty.size} 处修改等待同步…`;
@@ -854,6 +857,8 @@ function renderSync(){
   el.textContent = s;
 }
 function render(){
+  const lo = $("#logoutBtn"); if (lo) lo.hidden = S.mode!=="cloud";
+  if (S.mode==="login"){ renderSync(); $("#tabs").innerHTML = ""; $("#main").innerHTML = vLogin(); return; }
   const p = pendingItems(); renderTabs(p); renderSync();
   const L = ledger(); const view = {rules:vRules, import:vImport, overview:vOverview, month:vMonth, pivot:vPivot, detail:vDetail, pending:vPending, failed:vFailed, transfer:vTransfer, income:vIncome, analysis:vAnalysis}[S.tab] || vImport;
   const sample = S.files.some(f=>f.sample);
@@ -876,7 +881,7 @@ function vImport(L){
   const staged = S.files.filter(f=>f.staged), saved = S.files.filter(f=>!f.staged);
   const gc = globalCheck(L);
   const real = staged.filter(f=>!f.sample); const checks = real.map(f=>[f,fileCheck(f)]);
-  const canSave = real.length && checks.every(([,c])=>c.ready) && gc.ok && (S.mode==="online"||S.mode==="device") && !S.saving;
+  const canSave = real.length && checks.every(([,c])=>c.ready) && gc.ok && canStore() && !S.saving;
   return `
   <h2>上传账单</h2>
   <p class="lead">支持支付宝 CSV、微信 xlsx/CSV、网银和信用卡导出的 xlsx/CSV（PDF 尽量识别）。收入记录也从这里上传，文件名里带“收入”或“工资”会自动归为收入。</p>
@@ -896,14 +901,14 @@ function vImport(L){
     </div>
     <div class="row" style="margin-top:12px">
       <button class="btn pri" data-act="save" ${canSave?"":"disabled"}>${S.saving?"正在保存…":"回对完成，保存"}</button>
-      <span class="small muted">${!real.length ? "示例数据不能保存，请上传你自己的账单" : !(S.mode==="online"||S.mode==="device") ? "当前页面没有连接保存服务" : canSave ? "保存后，待确认清单里的项目仍可以继续处理" : "还有没对上的项目，处理或勾选确认后才能保存"}</span>
+      <span class="small muted">${!real.length ? "示例数据不能保存，请上传你自己的账单" : !canStore() ? "当前页面没有连接保存服务" : canSave ? "保存后，待确认清单里的项目仍可以继续处理" : "还有没对上的项目，处理或勾选确认后才能保存"}</span>
     </div>
   </div>` : ""}
   ${saved.length ? `<h2>已保存的账单</h2><div class="tw"><table><thead><tr><th>文件</th><th>渠道</th><th class="n">交易笔数</th><th>导入时间</th><th></th></tr></thead><tbody>
     ${saved.map(f=>`<tr><td class="wrapt">${esc(f.name)}</td><td>${CHANNELS[f.channel]}</td><td class="n">${S.txns.filter(t=>t.fileId===f.id).length}</td><td class="t">${esc((f.importedAt||"").slice(0,16).replace("T"," "))}</td>
     <td>${S.confirmDel===f.id ? `<span class="confirm small">删除后不能恢复 <button class="btn sm" data-act="delYes" data-id="${f.id}">确认删除</button><button class="btn sm ghost" data-act="delNo">取消</button></span>` : `<button class="btn sm ghost" data-act="del" data-id="${f.id}">删除</button>`}</td></tr>`).join("")}
   </tbody></table></div>` : ""}
-  ${S.mode==="online"||S.mode==="device" ? `<h2>备份与迁移</h2><div class="panel"><p class="small muted" style="margin:0 0 10px">把全部已保存的账单、分类规则和处理结果导出成一个备份文件。在另一个版本（claude.ai 版、网页版或离线版）里导入这个文件，数据就搬过去了。</p><div class="row"><button class="btn" data-act="backup">导出备份</button><label class="btn" for="backupIn">导入备份</label><input type="file" id="backupIn" accept=".json" hidden></div></div>` : ""}
+  ${canStore() ? `<h2>备份与迁移</h2><div class="panel"><p class="small muted" style="margin:0 0 10px">把全部已保存的账单、分类规则和处理结果导出成一个备份文件。在另一个版本（claude.ai 版、网页版或离线版）里导入这个文件，数据就搬过去了。</p><div class="row"><button class="btn" data-act="backup">导出备份</button><label class="btn" for="backupIn">导入备份</label><input type="file" id="backupIn" accept=".json" hidden></div></div>` : ""}
   ${!S.files.length ? `<div class="panel" style="margin-top:16px"><h3 style="margin-top:0">还没有账单</h3><p class="muted" style="margin:0 0 8px">先上传一份账单，或者用示例账单看看完整流程。</p><button class="btn" data-act="samples">载入示例账单</button></div>` : ""}`;
 }
 function fileCard(f){
@@ -1385,10 +1390,64 @@ async function importBackup(file){
   S.saving = false; render();
 }
 
+/* ============ 云端存储（Supabase） ============ */
+const canStore = () => ["online","device","cloud"].includes(S.mode);
+function supaStore(sb, uid){
+  const T = () => sb.from("ledger_docs");
+  return { collection: () => ({
+    doc: id => ({
+      set: async data => { const {error} = await T().upsert({user_id:uid, id, data, updated_at:new Date().toISOString()}, {onConflict:"user_id,id"}); if (error) throw error; },
+      delete: async () => { const {error} = await T().delete().eq("id", id); if (error) throw error; },
+    }),
+    limit: () => ({ get: async () => {
+      let rows = [];
+      for (let from = 0; ; from += 500){ const {data, error} = await T().select("id,data").order("id").range(from, from+499); if (error) throw error; rows = rows.concat(data); if (data.length < 500) break; }
+      return {docs: rows.map(r=>({id:r.id, data:()=>r.data}))};
+    }}),
+  })};
+}
+function vLogin(){
+  return `<div class="panel" style="max-width:420px;margin:40px auto">
+    <h2 style="margin-top:0">登录云端账本</h2>
+    <p class="small muted">登录后，账单保存在云端。手机、电脑用同一个邮箱登录，看到的是同一份数据。</p>
+    <form id="loginForm" class="stack">
+      <label class="small muted">邮箱<input type="text" id="lgEmail" autocomplete="email" style="width:100%" value="${esc(S.lgEmail||"")}"></label>
+      <label class="small muted">密码（至少 6 位）<input type="password" id="lgPw" autocomplete="current-password" style="width:100%"></label>
+      <div class="row"><button class="btn pri" type="submit" data-mode="in">登录</button><button class="btn" type="button" data-act="signup">第一次用：注册</button></div>
+      ${S.lgMsg?`<p class="small" style="color:var(--warn);margin:0">${esc(S.lgMsg)}</p>`:""}
+    </form></div>`;
+}
+async function doAuth(kind){
+  const email = $("#lgEmail").value.trim(), password = $("#lgPw").value; S.lgEmail = email;
+  if (!email || password.length < 6){ S.lgMsg = "请填写邮箱和至少 6 位的密码"; render(); return; }
+  S.lgMsg = kind==="up" ? "正在注册…" : "正在登录…"; render();
+  const r = kind==="up" ? await S.sb.auth.signUp({email, password, options:{emailRedirectTo: location.origin + location.pathname}}) : await S.sb.auth.signInWithPassword({email, password});
+  if (r.error){ S.lgMsg = /Invalid login/i.test(r.error.message) ? "邮箱或密码不对" : /registered/i.test(r.error.message) ? "这个邮箱已经注册过，请直接登录" : `失败：${r.error.message}`; render(); return; }
+  if (kind==="up" && !r.data.session){ S.lgMsg = "注册成功。请到邮箱点确认链接（点完如果跳到一个打不开的页面，不用管，账号已经确认了），然后回到这里登录。"; render(); return; }
+  location.reload();
+}
+document.addEventListener("submit", e => { if (e.target.id==="loginForm"){ e.preventDefault(); doAuth("in"); } });
+document.addEventListener("click", e => {
+  const el = e.target.closest("[data-act]"); if (!el) return;
+  if (el.dataset.act==="signup") doAuth("up");
+  if (el.dataset.act==="logout" && S.sb){ S.sb.auth.signOut().then(()=>location.reload()); }
+});
+
 /* ============ 启动 ============ */
 async function start(){
   render();
   const c = window.claude;
+  const cloud = window.LEDGER_CLOUD;
+  if ((!c || !c.use) && cloud && cloud.url && window.supabase){
+    try {
+      S.sb = window.supabase.createClient(cloud.url, cloud.key);
+      const {data:{session}} = await S.sb.auth.getSession();
+      if (!session){ S.mode = "login"; render(); return; }
+      S.db = supaStore(S.sb, session.user.id); S.uid = session.user.id; S.email = session.user.email; S.mode = "cloud";
+      await loadAll();
+    } catch(e){ S.mode = "local"; S.db = null; S.msg = `连接云端失败：${e?.message||e}`; }
+    if (!S.files.length) loadSamples(); render(); return;
+  }
   if (!c || !c.use){
     try { if (!window.indexedDB) throw 0; S.db = idbStore(); S.uid = "local"; await loadAll(); S.mode = "device"; }
     catch(e){ S.db = null; S.mode = "local"; }
