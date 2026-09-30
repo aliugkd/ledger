@@ -1,130 +1,131 @@
 <!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"></head><body style="margin:0"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script><script>window.LEDGER_CLOUD={"url": "https://leuhwnctthketzyhqohx.supabase.co", "key": "sb_publishable_ha2WH4kJ1TnLpBH4jyHKPw_ZRcFtCte"};</script><title>多渠道账本</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Noto+Sans+SC:wght@400;500;700;900&display=swap">
 <style>
-/* Layout: 深靛蓝顶栏 + 胶囊页签 + 白色卡片工作区；数字等宽右对齐 */
+/* Layout: 毛玻璃顶栏 + 分段式页签 + 浅灰底白卡片；系统字体，数字等宽对齐 */
 :root{
-  --bg:#f4f3fa; --surface:#ffffff; --sunk:#f0eff8; --ink:#1c1a33; --muted:#6a6787; --line:#e3e1f0;
-  --head:#231f4f; --head-ink:#f3f1ff; --head-muted:#aaa5d6;
-  --accent:#5b47e0; --accent-ink:#ffffff; --accent-soft:#ebe8fd;
-  --inc:#0f8b72; --inc-soft:#dcf3ec;
-  --warn:#b26a00; --warn-soft:#fff1d9;
-  --bad:#c23350; --bad-soft:#fde6ea;
-  --ok:#18854f; --ok-soft:#ddf3e6;
-  --shadow:0 1px 2px rgba(35,31,79,.06),0 4px 16px rgba(35,31,79,.06);
-  --f-display:"Noto Sans SC",-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
-  --f-body:-apple-system,"PingFang SC","Hiragino Sans GB","Noto Sans SC","Microsoft YaHei",sans-serif;
-  --f-num:"DM Mono","SF Mono",Menlo,Consolas,monospace;
-  --r:12px;
+  --bg:#f5f5f7; --surface:#ffffff; --sunk:#f5f5f7; --ink:#1d1d1f; --muted:#6e6e73; --line:#d2d2d7; --hair:rgba(0,0,0,.08);
+  --head:rgba(251,251,253,.8); --head-ink:#1d1d1f; --head-muted:#6e6e73; --seg:rgba(118,118,128,.12); --seg-on:#ffffff;
+  --accent:#0071e3; --accent-ink:#ffffff; --accent-soft:rgba(0,113,227,.1); --link:#0066cc;
+  --inc:#248a3d; --inc-soft:rgba(36,138,61,.1);
+  --warn:#b64400; --warn-soft:rgba(255,149,0,.14);
+  --bad:#d70015; --bad-soft:rgba(215,0,21,.08);
+  --ok:#248a3d; --ok-soft:rgba(36,138,61,.1);
+  --shadow:0 2px 12px rgba(0,0,0,.04);
+  --f-display:-apple-system,BlinkMacSystemFont,"SF Pro Display","PingFang SC","Helvetica Neue","Microsoft YaHei",sans-serif;
+  --f-body:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC","Helvetica Neue","Microsoft YaHei",sans-serif;
+  --f-num:-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",sans-serif;
+  --r:18px; --r-sm:12px;
 }
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
-  --bg:#12111f; --surface:#1c1a2e; --sunk:#171628; --ink:#e9e7f7; --muted:#9a96bd; --line:#2e2b47;
-  --head:#1a1736; --head-ink:#f3f1ff; --head-muted:#8f89c4;
-  --accent:#9c8cff; --accent-ink:#15122e; --accent-soft:#2a2553;
-  --inc:#4fd1b0; --inc-soft:#133a33; --warn:#f0b457; --warn-soft:#3a2c12;
-  --bad:#ff7d95; --bad-soft:#401823; --ok:#5fd394; --ok-soft:#153626;
-  --shadow:0 1px 2px rgba(0,0,0,.3); color-scheme:dark}}
+  --bg:#000000; --surface:#1c1c1e; --sunk:#2c2c2e; --ink:#f5f5f7; --muted:#a1a1a6; --line:#38383a; --hair:rgba(255,255,255,.1);
+  --head:rgba(22,22,23,.8); --head-ink:#f5f5f7; --head-muted:#a1a1a6; --seg:rgba(118,118,128,.24); --seg-on:#636366;
+  --accent:#0a84ff; --accent-ink:#ffffff; --accent-soft:rgba(10,132,255,.18); --link:#2997ff;
+  --inc:#30d158; --inc-soft:rgba(48,209,88,.15); --warn:#ff9f0a; --warn-soft:rgba(255,159,10,.16);
+  --bad:#ff453a; --bad-soft:rgba(255,69,58,.15); --ok:#30d158; --ok-soft:rgba(48,209,88,.15);
+  --shadow:none; color-scheme:dark}}
 :root[data-theme="dark"]{
-  --bg:#12111f; --surface:#1c1a2e; --sunk:#171628; --ink:#e9e7f7; --muted:#9a96bd; --line:#2e2b47;
-  --head:#1a1736; --head-ink:#f3f1ff; --head-muted:#8f89c4;
-  --accent:#9c8cff; --accent-ink:#15122e; --accent-soft:#2a2553;
-  --inc:#4fd1b0; --inc-soft:#133a33; --warn:#f0b457; --warn-soft:#3a2c12;
-  --bad:#ff7d95; --bad-soft:#401823; --ok:#5fd394; --ok-soft:#153626;
-  --shadow:0 1px 2px rgba(0,0,0,.3); color-scheme:dark}
+  --bg:#000000; --surface:#1c1c1e; --sunk:#2c2c2e; --ink:#f5f5f7; --muted:#a1a1a6; --line:#38383a; --hair:rgba(255,255,255,.1);
+  --head:rgba(22,22,23,.8); --head-ink:#f5f5f7; --head-muted:#a1a1a6; --seg:rgba(118,118,128,.24); --seg-on:#636366;
+  --accent:#0a84ff; --accent-ink:#ffffff; --accent-soft:rgba(10,132,255,.18); --link:#2997ff;
+  --inc:#30d158; --inc-soft:rgba(48,209,88,.15); --warn:#ff9f0a; --warn-soft:rgba(255,159,10,.16);
+  --bad:#ff453a; --bad-soft:rgba(255,69,58,.15); --ok:#30d158; --ok-soft:rgba(48,209,88,.15);
+  --shadow:none; color-scheme:dark}
 *{box-sizing:border-box}
-body{background:var(--bg);color:var(--ink);font:14px/1.6 var(--f-body)}
-.wrap{max-width:1180px;margin:0 auto;padding-inline:16px;padding-block:4px 56px}
-header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--head);color:var(--head-ink)}
-.topin{max-width:1180px;margin:0 auto;padding:14px 16px 4px;display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center}
-h1{font:900 20px/1.2 var(--f-display);margin:0;letter-spacing:.04em;display:flex;align-items:center;gap:10px}
-h1 .mark{display:inline-grid;place-items:center;width:28px;height:28px;border-radius:8px;background:var(--accent);color:#fff;font:500 15px var(--f-num)}
-.sync{color:var(--head-muted);font-size:12.5px;flex:1;min-width:160px}
-header .btn{background:transparent;color:var(--head-ink);border-color:rgba(255,255,255,.28)}
-header .btn:hover{border-color:var(--head-ink)}
-nav.tabs{max-width:1180px;margin:0 auto;display:flex;gap:4px;overflow-x:auto;padding:8px 16px 12px;scrollbar-width:none}
+body{background:var(--bg);color:var(--ink);font:15px/1.53 var(--f-body);letter-spacing:-.01em;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1080px;margin:0 auto;padding-inline:22px;padding-block:8px 80px}
+header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--head);color:var(--head-ink);backdrop-filter:saturate(180%) blur(20px);-webkit-backdrop-filter:saturate(180%) blur(20px);border-bottom:1px solid var(--hair)}
+.topin{max-width:1080px;margin:0 auto;padding:12px 22px 6px;display:flex;flex-wrap:wrap;gap:6px 18px;align-items:center}
+h1{font:600 19px/1.2 var(--f-display);margin:0;letter-spacing:-.02em;display:flex;align-items:center;gap:9px}
+h1 .mark{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:7px;background:linear-gradient(180deg,#3b9bff,#0071e3);color:#fff;font:600 14px var(--f-display)}
+.sync{color:var(--head-muted);font-size:12px;flex:1;min-width:160px}
+header .btn{background:transparent;border-color:transparent;color:var(--link);padding:4px 10px}
+header .btn:hover{background:var(--seg);color:var(--link)}
+nav.tabs{max-width:1080px;margin:0 auto;display:flex;gap:2px;overflow-x:auto;padding:6px 22px 12px;scrollbar-width:none}
 nav.tabs::-webkit-scrollbar{display:none}
-nav.tabs button{border:0;background:transparent;color:var(--head-muted);font:inherit;font-size:13.5px;padding:6px 14px;border-radius:999px;white-space:nowrap;cursor:pointer}
-nav.tabs button:hover{color:var(--head-ink);background:rgba(255,255,255,.08)}
-nav.tabs button[aria-selected="true"]{color:var(--head);background:var(--head-ink);font-weight:600}
-.badge{display:inline-block;min-width:18px;padding:0 6px;border-radius:9px;font:500 11px/18px var(--f-num);background:var(--warn-soft);color:var(--warn);margin-left:5px;text-align:center}
-.badge.dim{background:rgba(127,127,160,.18);color:inherit}
-h2{font:700 20px/1.3 var(--f-display);margin:28px 0 6px;text-wrap:balance}
-h3{font:700 15px/1.4 var(--f-display);margin:20px 0 6px}
-p.lead{color:var(--muted);margin:0 0 14px;max-width:68ch}
-.btn{font:inherit;font-size:13.5px;border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:6px 14px;border-radius:999px;cursor:pointer;white-space:nowrap;transition:border-color .15s,background .15s}
+nav.tabs button{border:0;background:transparent;color:var(--head-muted);font:inherit;font-size:13px;font-weight:500;padding:6px 13px;border-radius:999px;white-space:nowrap;cursor:pointer;transition:background .2s,color .2s}
+nav.tabs button:hover{color:var(--head-ink);background:var(--seg)}
+nav.tabs button[aria-selected="true"]{color:var(--accent-ink);background:var(--ink)}
+.badge{display:inline-block;min-width:18px;padding:0 6px;border-radius:9px;font:600 11px/18px var(--f-num);font-variant-numeric:tabular-nums;background:var(--warn-soft);color:var(--warn);margin-left:5px;text-align:center}
+.badge.dim{background:var(--seg);color:inherit}
+nav.tabs button[aria-selected="true"] .badge{background:rgba(255,255,255,.22);color:inherit}
+h2{font:700 32px/1.12 var(--f-display);letter-spacing:-.025em;margin:44px 0 8px;text-wrap:balance}
+h3{font:600 19px/1.3 var(--f-display);letter-spacing:-.015em;margin:28px 0 8px}
+p.lead{color:var(--muted);font-size:17px;line-height:1.47;margin:0 0 22px;max-width:62ch}
+.btn{font:inherit;font-size:14px;font-weight:500;border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:7px 16px;border-radius:999px;cursor:pointer;white-space:nowrap;transition:background .2s,border-color .2s,color .2s}
 .btn:hover{border-color:var(--accent);color:var(--accent)}
-.btn.pri{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
-.btn.pri:hover{filter:brightness(1.08);color:var(--accent-ink)}
-.btn.sm{padding:3px 11px;font-size:12.5px}
-.btn.ghost{border-color:transparent;background:none;color:var(--accent)}
-.btn:disabled{opacity:.45;cursor:not-allowed}
-:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-select,input[type=text],input[type=number],input[type=month]{font:inherit;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:5px 9px;max-width:100%}
-.row{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center}
+.btn.pri{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.pri:hover{background:#0077ed;color:var(--accent-ink)}
+.btn.sm{padding:4px 12px;font-size:13px}
+.btn.ghost{border-color:transparent;background:none;color:var(--link)}
+.btn.ghost:hover{background:var(--accent-soft)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+:focus-visible{outline:3px solid rgba(0,125,250,.6);outline-offset:1px}
+select,input[type=text],input[type=number],input[type=month],input[type=password]{font:inherit;font-size:14px;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:7px 11px;max-width:100%}
+input[type=checkbox]{accent-color:var(--accent)}
+.row{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center}
 .grow{flex:1}
-.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px 18px;min-width:0;box-shadow:var(--shadow)}
+.panel{background:var(--surface);border-radius:var(--r);padding:22px 26px;min-width:0;box-shadow:var(--shadow)}
 .stack{display:grid;gap:14px}
-.banner{background:var(--accent-soft);color:var(--ink);padding:12px 16px;border-radius:var(--r);margin-top:18px;display:flex;gap:12px;flex-wrap:wrap;align-items:center}
-.banner b{color:var(--accent)}
-.drop{display:block;border:2px dashed var(--accent);border-radius:var(--r);padding:34px 16px;text-align:center;background:var(--surface);cursor:pointer;transition:background .15s}
-.drop:hover,.drop.over{background:var(--accent-soft)}
-.drop strong{font:700 17px var(--f-display);color:var(--accent)}
-.drop .ic{font:500 26px/1 var(--f-num);color:var(--accent);display:block;margin-bottom:6px}
+.banner{background:var(--surface);color:var(--ink);padding:14px 20px;border-radius:var(--r-sm);margin-top:22px;display:flex;gap:14px;flex-wrap:wrap;align-items:center;font-size:14px;box-shadow:var(--shadow)}
+.banner b{color:var(--ink);font-weight:600}
+.drop{display:block;border:1.5px dashed var(--line);border-radius:var(--r);padding:44px 20px;text-align:center;background:var(--surface);cursor:pointer;transition:background .2s,border-color .2s}
+.drop:hover,.drop.over{border-color:var(--accent);background:var(--accent-soft)}
+.drop strong{font:600 19px var(--f-display);letter-spacing:-.015em;color:var(--ink)}
+.drop .ic{font:300 34px/1 var(--f-display);color:var(--accent);display:block;margin-bottom:10px}
 .muted{color:var(--muted)}
-.small{font-size:12.5px}
-.chip{display:inline-block;padding:0 8px;border-radius:999px;font-size:12px;line-height:21px;white-space:nowrap;background:var(--sunk);color:var(--muted)}
+.small{font-size:13px}
+.chip{display:inline-block;padding:0 9px;border-radius:999px;font-size:12px;font-weight:500;line-height:22px;white-space:nowrap;background:var(--sunk);color:var(--muted)}
 .chip.ok{background:var(--ok-soft);color:var(--ok)}
 .chip.warn{background:var(--warn-soft);color:var(--warn)}
 .chip.bad{background:var(--bad-soft);color:var(--bad)}
 .chip.inc{background:var(--inc-soft);color:var(--inc)}
 .chip.acc{background:var(--accent-soft);color:var(--accent)}
-.tw{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r);background:var(--surface);box-shadow:var(--shadow)}
-table{border-collapse:collapse;width:100%;font-size:13px}
-th,td{padding:8px 12px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
-th{font-weight:600;color:var(--muted);font-size:12px;background:var(--sunk);position:sticky;top:0;white-space:nowrap}
+.tw{overflow-x:auto;border-radius:var(--r-sm);background:var(--surface);box-shadow:var(--shadow)}
+table{border-collapse:collapse;width:100%;font-size:13.5px}
+th,td{padding:10px 14px;border-bottom:1px solid var(--hair);text-align:left;vertical-align:top}
+th{font-weight:600;color:var(--muted);font-size:12px;background:var(--surface);position:sticky;top:0;white-space:nowrap}
 tr:last-child td{border-bottom:0}
-tbody tr:hover td{background:color-mix(in srgb,var(--accent-soft) 45%,transparent)}
+tbody tr:hover td{background:var(--sunk)}
 td.n,th.n{text-align:right;font-family:var(--f-num);font-variant-numeric:tabular-nums;white-space:nowrap}
-td.t{font-family:var(--f-num);font-size:12px;white-space:nowrap;color:var(--muted)}
-td.src,.src{font-size:11.5px;color:var(--muted);white-space:nowrap}
+td.t{font-variant-numeric:tabular-nums;font-size:12.5px;white-space:nowrap;color:var(--muted)}
+td.src,.src{font-size:12px;color:var(--muted);white-space:nowrap}
 tr.tot td{font-weight:600;background:var(--sunk)}
 td.cell{cursor:pointer}
 td.cell:hover{background:var(--accent-soft)!important;color:var(--accent)}
 td.cell.on{background:var(--accent-soft);box-shadow:inset 0 0 0 2px var(--accent)}
 .neg{color:var(--inc)}
-.wrapt{max-width:28ch;overflow-wrap:anywhere}
-.checks{display:grid;gap:5px;margin-top:10px}
-.check{display:flex;gap:8px;align-items:baseline;font-size:13px}
-.check .ic{font-family:var(--f-num);font-weight:600;width:1.2em;flex:none}
+.wrapt{max-width:30ch;overflow-wrap:anywhere}
+.checks{display:grid;gap:6px;margin-top:12px}
+.check{display:flex;gap:10px;align-items:baseline;font-size:14px}
+.check .ic{font-weight:700;width:1.1em;flex:none;text-align:center}
 .check.pass .ic{color:var(--ok)} .check.fail .ic{color:var(--bad)}
-.fmap{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px 12px;margin-top:10px}
-.fmap label{display:grid;gap:2px;font-size:12px;color:var(--muted)}
-details>summary{cursor:pointer;color:var(--accent);font-size:13px;margin-top:8px}
-.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
-.kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 16px;box-shadow:var(--shadow)}
-.kpi .l{font-size:12px;color:var(--muted)}
-.kpi .v{font:500 clamp(16px,2.4vw,21px)/1.35 var(--f-num);font-variant-numeric:tabular-nums;white-space:nowrap}
-.pgroup{display:grid;gap:10px}
-.pitem{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 16px;display:grid;gap:6px;min-width:0;box-shadow:var(--shadow)}
-.pitem .what{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:baseline}
-.pitem .amt{font-family:var(--f-num);font-weight:500;margin-left:auto}
-.sechead{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:space-between;margin-top:26px}
+.fmap{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px 14px;margin-top:12px}
+.fmap label{display:grid;gap:4px;font-size:12px;color:var(--muted)}
+details>summary{cursor:pointer;color:var(--link);font-size:14px;margin-top:10px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px}
+.kpi{background:var(--surface);border-radius:var(--r);padding:18px 22px;box-shadow:var(--shadow)}
+.kpi .l{font-size:13px;color:var(--muted);font-weight:500}
+.kpi .v{font:600 clamp(19px,2.6vw,28px)/1.25 var(--f-display);letter-spacing:-.02em;font-variant-numeric:tabular-nums;white-space:nowrap;margin-top:4px}
+.pgroup{display:grid;gap:12px}
+.pitem{background:var(--surface);border-radius:var(--r-sm);padding:16px 20px;display:grid;gap:8px;min-width:0;box-shadow:var(--shadow)}
+.pitem .what{display:flex;flex-wrap:wrap;gap:4px 14px;align-items:baseline}
+.pitem .amt{font-weight:600;font-variant-numeric:tabular-nums;margin-left:auto}
+.sechead{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between;margin-top:34px}
 .sechead h3{margin:0}
-.basis{font-size:12.5px;color:var(--muted);margin:0;padding-left:18px}
+.basis{font-size:13px;color:var(--muted);margin:0;padding-left:18px}
 .chart svg{width:100%;height:auto;display:block}
 .chart text{fill:var(--muted);font-family:var(--f-num);font-size:11px}
-.bar{fill:var(--accent)} .bar.inc{fill:var(--inc);opacity:.5}
-.grid line{stroke:var(--line)}
-.an h4{margin:16px 0 4px;font-size:14px;color:var(--accent)}
+.bar{fill:var(--accent)} .bar.inc{fill:var(--inc);opacity:.45}
+.sw{display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--accent);margin-right:6px;vertical-align:-1px}.sw.inc{background:var(--inc);opacity:.45}
+.grid line{stroke:var(--hair)}
+.an h4{margin:20px 0 6px;font-size:15px;font-weight:600}
 .an ul{margin:4px 0;padding-left:20px}
-.an li{margin:5px 0}
-.confirm{display:inline-flex;gap:6px;align-items:center;background:var(--bad-soft);padding:3px 10px;border-radius:999px}
-.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}
+.an li{margin:6px 0}
+.confirm{display:inline-flex;gap:8px;align-items:center;background:var(--bad-soft);padding:3px 12px;border-radius:999px}
+.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px}
 .two>*{min-width:0}
-.meter{height:7px;background:var(--sunk);border-radius:4px;overflow:hidden}
-.meter i{display:block;height:100%;background:var(--accent);border-radius:4px}
-@media (max-width:600px){ h2{font-size:18px} .pitem .amt{margin-left:0} th,td{padding:7px 9px} }
+.meter{height:6px;background:var(--sunk);border-radius:3px;overflow:hidden}
+.meter i{display:block;height:100%;background:var(--accent);border-radius:3px}
+@media (max-width:600px){ .wrap,.topin,nav.tabs{padding-inline:16px} h2{font-size:26px;margin-top:32px} p.lead{font-size:15px} .panel{padding:18px} .pitem .amt{margin-left:0} th,td{padding:8px 10px} }
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 
@@ -652,14 +653,14 @@ function fileCheck(f){
   const r = f.result || {summary:[],unparsed:[],declared:[],empty:0};
   const ok = tx.filter(t=>effState(t)==="ok").length, failed = tx.filter(t=>effState(t)==="failed").length, pend = tx.filter(t=>effState(t)==="pending").length;
   const checks = [];
-  if (f.meta && f.meta.headerRow < 0) checks.push({pass:false, text:"没有找到表头行，请在下方手动指定表头所在行和列"});
+  if (f.meta && f.meta.headerRow < 0) checks.push({pass:false, text:"未能识别表头。请在下方指定表头所在的行与列。"});
   else {
     const missing = []; const m = f.meta.map;
     if (m.time<0) missing.push("交易时间"); if (m.amount<0 && m.out<0 && m.in<0) missing.push("金额");
-    if (missing.length) checks.push({pass:false, text:`缺少关键列：${missing.join("、")}`});
+    if (missing.length) checks.push({pass:false, text:`缺少必要的列：${missing.join("、")}`});
     const rowsTotal = tx.length + r.summary.length + r.unparsed.length;
-    checks.push({pass:true, text:`表格数据行 ${rowsTotal} = 交易 ${tx.length}（成功 ${ok}、失败/关闭 ${failed}、处理中 ${pend}）+ 汇总/说明行 ${r.summary.length} + 无法解析 ${r.unparsed.length}`});
-    checks.push({pass:r.unparsed.length===0, text: r.unparsed.length ? `${r.unparsed.length} 行无法解析（见下方列表），需要你确认可以忽略` : "所有数据行都已解析"});
+    checks.push({pass:true, text:`数据行 ${rowsTotal} = 交易 ${tx.length}（成功 ${ok}、无效 ${failed}、处理中 ${pend}）+ 汇总与说明行 ${r.summary.length} + 无法识别 ${r.unparsed.length}`});
+    checks.push({pass:r.unparsed.length===0, text: r.unparsed.length ? `${r.unparsed.length} 行无法识别，详见下方列表。确认可忽略后即可保存。` : "所有数据行均已识别"});
     for (const d of r.declared){
       if (d.label==="总笔数"){ checks.push({pass: d.count===tx.length || d.count===ok, text:`账单声明共 ${d.count} 笔；解析到 ${tx.length} 笔（成功 ${ok}）`}); continue; }
       if (f.channel==="alipay"){
@@ -667,7 +668,7 @@ function fileCheck(f){
         const all2 = tx.filter(t=>t.dir===dir2), ok2 = all2.filter(t=>effState(t)==="ok");
         const sA2 = all2.reduce((s,t)=>s+t.amount,0), sO2 = ok2.reduce((s,t)=>s+t.amount,0);
         const cOk = d.count===all2.length || d.count===ok2.length, mOk = d.sum===sA2 || d.sum===sO2;
-        checks.push({pass: cOk ? (mOk ? true : null) : false, text:`账单声明${d.label} ${d.count} 笔 ${yuan(d.sum)}；解析结果 ${all2.length} 笔（成功 ${ok2.length} 笔 ${yuan(sO2)}）` + (cOk && !mOk ? "。笔数一致；金额合计是支付宝自己的统计口径（支付宝在账单说明第 6 条注明与逐笔相加可能不一致），不影响明细" : "")});
+        checks.push({pass: cOk ? (mOk ? true : null) : false, text:`账单声明${d.label} ${d.count} 笔 ${yuan(d.sum)}；解析结果 ${all2.length} 笔（成功 ${ok2.length} 笔 ${yuan(sO2)}）` + (cOk && !mOk ? "。笔数一致；金额合计采用支付宝自有统计口径（见其账单说明第 6 条），与逐笔相加可能不同，不影响明细。" : "")});
         continue;
       }
       const dir = d.label==="支出" ? "支出" : d.label==="收入" ? "收入" : "不计收支";
@@ -681,7 +682,7 @@ function fileCheck(f){
       const s = tx.filter(t=>t.dir==="支出"&&effState(t)==="ok").reduce((a,t)=>a+t.amount,0);
       checks.push({pass: want===s, text:`你填写的支出合计 ${yuan(want)}；解析出的成功支出 ${yuan(s)}`});
     }
-    if (!r.declared.length && !f.userTotal && f.channel!=="income") checks.push({pass:null, text:"这份账单没有自带合计。可以在右侧填入账单上的支出合计，一起核对"});
+    if (!r.declared.length && !f.userTotal && f.channel!=="income") checks.push({pass:null, text:"该账单未附带合计。可填写账单上的支出合计，以便一并核对。"});
   }
   const failing = checks.filter(c=>c.pass===false).length;
   return {checks, failing, ok, failed, pend, n:tx.length, ready: failing===0 || f.ack};
@@ -692,9 +693,9 @@ async function addFiles(fileList){
   for (const file of fileList){
     try {
       const f = await readFile(file);
-      if (S.files.some(x=>x.id===f.id)){ S.msg = `「${file.name}」之前已经导入过，已跳过`; continue; }
+      if (S.files.some(x=>x.id===f.id)){ S.msg = `“${file.name}”此前已导入，已跳过。`; continue; }
       f.staged = true; f.order = Date.now(); S.files.push(f); setupFile(f);
-    } catch(e){ S.msg = `「${file.name}」读取失败：${e.message}`; }
+    } catch(e){ S.msg = `无法读取“${file.name}”：${e.message}`; }
   }
   S.tab = "import"; render();
 }
@@ -724,11 +725,11 @@ async function saveStaged(){
       f.staged = false; delete f.sheets; f.saved = {chunks:n, check:c.checks.map(x=>({pass:x.pass,text:x.text}))};
     }
     await saveSettings();
-    S.lastSaved = new Date(); S.msg = "已保存";
+    S.lastSaved = new Date(); S.msg = "已保存。";
   } catch(e){ S.msg = saveErr(e); }
   S.saving = false; render();
 }
-function saveErr(e){ return e?.code==="quota_exceeded" ? "存储空间已满，请先删除一些旧账单再保存" : `保存失败：${e?.message||e}`; }
+function saveErr(e){ return e?.code==="quota_exceeded" ? "存储空间已满。请删除部分旧账单后再保存。" : `保存失败：${e?.message||e}`; }
 async function saveSettings(){ if (S.db && S.uid) await col().doc("settings").set({ownNames:S.rules.ownNames, cat:S.rules.cat, meta:S.rules.meta, kw:S.rules.kw, customCats:S.rules.customCats, autoDup:autoDupOn()}); }
 let dirtyTimer = null;
 function markDirty(t){
@@ -873,7 +874,7 @@ function sampleFiles(){
 function loadSamples(){ for (const f of sampleFiles()){ S.files.push(f); setupFile(f); } }
 
 /* ============ 渲染 ============ */
-const TABS = [["import","导入与对账"],["overview","月度总览"],["month","每月账单"],["pivot","分类汇总"],["detail","明细"],["rules","分类规则"],["pending","待确认"],["failed","失败/关闭"],["transfer","转账与还款"],["income","收入"],["analysis","支出分析"]];
+const TABS = [["import","导入"],["overview","概览"],["month","月度账单"],["pivot","分类汇总"],["detail","交易明细"],["rules","分类规则"],["pending","待处理"],["failed","无效交易"],["transfer","转账与还款"],["income","收入"],["analysis","消费洞察"]];
 function renderTabs(p){
   $("#tabs").innerHTML = TABS.map(([k,l])=>`<button role="tab" data-tab="${k}" aria-selected="${S.tab===k}">${l}${k==="pending"&&p.total?`<span class="badge">${p.total}</span>`:""}${k==="failed"?`<span class="badge dim">${S.txns.filter(t=>effState(t)==="failed").length}</span>`:""}</button>`).join("");
 }
@@ -881,13 +882,13 @@ function renderSync(){
   const el = $("#sync"); const saved = S.files.filter(f=>!f.staged&&!f.sample).length;
   let s;
   if (S.mode==="connecting") s = "正在连接…";
-  else if (S.mode==="local") s = "未连接保存服务：数据只在这个页面里，关闭后会丢失";
-  else if (S.mode==="login") s = "云端版 · 请先登录";
-  else if (S.mode==="cloud" && !S.saving && !S.dirty.size) s = `云端版 · ${S.email} · ${saved} 份账单 · 其他设备登录同一账号即可看到`;
-  else if (S.mode==="device" && !S.saving && !S.dirty.size) s = (location.protocol==="file:" ? "离线版 · 数据保存在这台电脑的浏览器里" : "网页版 · 数据保存在当前浏览器里，换设备需用备份迁移") + ` · ${saved} 份账单`;
-  else if (S.saving) s = "正在保存…";
-  else if (S.dirty.size) s = `有 ${S.dirty.size} 处修改等待同步…`;
-  else s = `已保存 ${saved} 份账单 · ${S.txns.filter(t=>!S.files.find(f=>f.id===t.fileId)?.staged).length} 笔交易` + (S.lastSaved ? ` · ${fmtDate(S.lastSaved,true).slice(11,16)} 同步` : "");
+  else if (S.mode==="local") s = "未连接存储服务：数据仅保留在当前页面，关闭后将丢失";
+  else if (S.mode==="login") s = "云端版 · 请登录";
+  else if (S.mode==="cloud" && !S.saving && !S.dirty.size) s = `云端版 · ${S.email} · ${saved} 份账单 · 所有设备实时同步`;
+  else if (S.mode==="device" && !S.saving && !S.dirty.size) s = (location.protocol==="file:" ? "离线版 · 数据存储于本机浏览器" : "网页版 · 数据存储于当前浏览器，跨设备请使用备份迁移") + ` · ${saved} 份账单`;
+  else if (S.saving) s = "正在同步…";
+  else if (S.dirty.size) s = `${S.dirty.size} 处更改待同步…`;
+  else s = `${saved} 份账单 · ${S.txns.filter(t=>!S.files.find(f=>f.id===t.fileId)?.staged).length} 笔交易` + (S.lastSaved ? ` · 已于 ${fmtDate(S.lastSaved,true).slice(11,16)} 同步` : " · 已同步");
   el.textContent = s;
 }
 function render(){
@@ -896,7 +897,7 @@ function render(){
   const p = pendingItems(); renderTabs(p); renderSync();
   const L = ledger(); const view = {rules:vRules, import:vImport, overview:vOverview, month:vMonth, pivot:vPivot, detail:vDetail, pending:vPending, failed:vFailed, transfer:vTransfer, income:vIncome, analysis:vAnalysis}[S.tab] || vImport;
   const sample = S.files.some(f=>f.sample);
-  $("#main").innerHTML = (sample ? `<div class="banner"><span><b>正在查看示例数据。</b>这些是虚构账单，用来演示识别、对账和待确认流程，不会被保存。上传你自己的账单后，示例会自动清除。</span><button class="btn sm" data-act="clearSamples">清除示例</button></div>` : "")
+  $("#main").innerHTML = (sample ? `<div class="banner"><span><b>示例数据。</b>以下均为虚构账单，用于演示识别、核对与确认流程，不会被保存。导入你自己的账单后，示例将自动移除。</span><button class="btn sm" data-act="clearSamples">移除示例</button></div>` : "")
     + (S.msg ? `<p class="small" style="margin-top:12px;color:var(--warn)">${esc(S.msg)}</p>` : "") + view(L,p);
 }
 const months = () => [...new Set(S.txns.map(t=>t.month))].sort().reverse();
@@ -917,33 +918,33 @@ function vImport(L){
   const real = staged.filter(f=>!f.sample); const checks = real.map(f=>[f,fileCheck(f)]);
   const canSave = real.length && checks.every(([,c])=>c.ready) && gc.ok && canStore() && !S.saving;
   return `
-  <h2>上传账单</h2>
-  <p class="lead">支持支付宝 CSV、微信 xlsx/CSV、网银和信用卡导出的 xlsx/CSV（PDF 尽量识别）。收入记录也从这里上传，文件名里带“收入”或“工资”会自动归为收入。</p>
-  <label class="drop" id="drop" for="fileIn"><span class="ic">↑</span><strong>把账单文件拖到这里</strong><div class="muted small">或点击选择文件，可以一次选多个</div></label>
+  <h2>导入账单</h2>
+  <p class="lead">支持支付宝、微信、银行卡与信用卡导出的 CSV 和 Excel 文件，PDF 账单将尽可能识别。文件名包含“收入”或“工资”的，会自动归入收入。</p>
+  <label class="drop" id="drop" for="fileIn"><span class="ic">↑</span><strong>将账单文件拖放到此处</strong><div class="muted small">或点按以选择文件，支持一次选择多个</div></label>
   <input type="file" id="fileIn" multiple accept=".csv,.txt,.xlsx,.xls,.pdf" hidden>
   <div class="row" style="margin-top:12px">
-    <label class="small muted" for="ownNames">我的名字 / 本人账户关键词</label>
-    <input type="text" id="ownNames" class="grow" style="min-width:200px" placeholder="例如：刘某, 本人招行卡。对方是这些名字的转账会算作内部转账" value="${esc(S.rules.ownNames.join(", "))}">
+    <label class="small muted" for="ownNames">本人姓名与账户关键词</label>
+    <input type="text" id="ownNames" class="grow" style="min-width:200px" placeholder="例如：张三、招行尾号 1234。转给这些对象的款项将计为内部转账" value="${esc(S.rules.ownNames.join(", "))}">
   </div>
-  ${staged.length ? `<h2>待确认的导入 <span class="muted small">（${staged.length} 份）</span></h2><div class="stack">${staged.map(fileCard).join("")}</div>` : ""}
+  ${staged.length ? `<h2>待保存的账单 <span class="muted small">${staged.length} 份</span></h2><div class="stack">${staged.map(fileCard).join("")}</div>` : ""}
   ${staged.length ? `
   <div class="panel" style="margin-top:16px">
-    <h3 style="margin-top:0">整体回对</h3>
+    <h3 style="margin-top:0">核对结果</h3>
     <div class="checks">
-      <div class="check ${gc.ok?"pass":"fail"}"><span class="ic">${gc.ok?"✓":"✗"}</span><span>分类合计 ${yuan(gc.pivotSum)} = 月度合计 ${yuan(gc.monthSum)} = 明细合计 ${yuan(gc.detailSum)}${gc.perMonth?"（逐月一致）":"（有月份不一致）"}</span></div>
-      ${real.map(f=>{const c=fileCheck(f);return `<div class="check ${c.ready?"pass":"fail"}"><span class="ic">${c.ready?"✓":"✗"}</span><span>${esc(f.name)}：${c.failing? (f.ack?`有 ${c.failing} 项差异，你已确认`:`有 ${c.failing} 项没对上`) : "全部对上"}</span></div>`}).join("")}
+      <div class="check ${gc.ok?"pass":"fail"}"><span class="ic">${gc.ok?"✓":"✗"}</span><span>分类合计 ${yuan(gc.pivotSum)} = 月度合计 ${yuan(gc.monthSum)} = 明细合计 ${yuan(gc.detailSum)}${gc.perMonth?"，逐月一致":"，部分月份不一致"}</span></div>
+      ${real.map(f=>{const c=fileCheck(f);return `<div class="check ${c.ready?"pass":"fail"}"><span class="ic">${c.ready?"✓":"✗"}</span><span>${esc(f.name)}：${c.failing? (f.ack?`${c.failing} 项差异，已确认`:`${c.failing} 项未通过`) : "全部通过"}</span></div>`}).join("")}
     </div>
     <div class="row" style="margin-top:12px">
-      <button class="btn pri" data-act="save" ${canSave?"":"disabled"}>${S.saving?"正在保存…":"回对完成，保存"}</button>
-      <span class="small muted">${!real.length ? "示例数据不能保存，请上传你自己的账单" : !canStore() ? "当前页面没有连接保存服务" : canSave ? "保存后，待确认清单里的项目仍可以继续处理" : "还有没对上的项目，处理或勾选确认后才能保存"}</span>
+      <button class="btn pri" data-act="save" ${canSave?"":"disabled"}>${S.saving?"正在保存…":"核对无误，保存"}</button>
+      <span class="small muted">${!real.length ? "示例数据仅供演示，不会保存。请导入你自己的账单。" : !canStore() ? "当前页面未连接存储服务。" : canSave ? "保存后，仍可在“待处理”中继续确认。" : "仍有未通过的核对项。处理或确认后即可保存。"}</span>
     </div>
   </div>` : ""}
-  ${saved.length ? `<h2>已保存的账单</h2><div class="tw"><table><thead><tr><th>文件</th><th>渠道</th><th class="n">交易笔数</th><th>导入时间</th><th></th></tr></thead><tbody>
+  ${saved.length ? `<h2>已保存的账单</h2><div class="tw"><table><thead><tr><th>文件</th><th>来源</th><th class="n">交易</th><th>导入时间</th><th></th></tr></thead><tbody>
     ${saved.map(f=>`<tr><td class="wrapt">${esc(f.name)}</td><td>${CHANNELS[f.channel]}</td><td class="n">${S.txns.filter(t=>t.fileId===f.id).length}</td><td class="t">${esc((f.importedAt||"").slice(0,16).replace("T"," "))}</td>
-    <td>${S.confirmDel===f.id ? `<span class="confirm small">删除后不能恢复 <button class="btn sm" data-act="delYes" data-id="${f.id}">确认删除</button><button class="btn sm ghost" data-act="delNo">取消</button></span>` : `<button class="btn sm ghost" data-act="del" data-id="${f.id}">删除</button>`}</td></tr>`).join("")}
+    <td>${S.confirmDel===f.id ? `<span class="confirm small">删除后无法恢复 <button class="btn sm" data-act="delYes" data-id="${f.id}">确认删除</button><button class="btn sm ghost" data-act="delNo">取消</button></span>` : `<button class="btn sm ghost" data-act="del" data-id="${f.id}">删除</button>`}</td></tr>`).join("")}
   </tbody></table></div>` : ""}
-  ${canStore() ? `<h2>备份与迁移</h2><div class="panel"><p class="small muted" style="margin:0 0 10px">把全部已保存的账单、分类规则和处理结果导出成一个备份文件。在另一个版本（claude.ai 版、网页版或离线版）里导入这个文件，数据就搬过去了。</p><div class="row"><button class="btn" data-act="backup">导出备份</button><label class="btn" for="backupIn">导入备份</label><input type="file" id="backupIn" accept=".json" hidden></div></div>` : ""}
-  ${!S.files.length ? `<div class="panel" style="margin-top:16px"><h3 style="margin-top:0">还没有账单</h3><p class="muted" style="margin:0 0 8px">先上传一份账单，或者用示例账单看看完整流程。</p><button class="btn" data-act="samples">载入示例账单</button></div>` : ""}`;
+  ${canStore() ? `<h2>备份与迁移</h2><div class="panel"><p class="small muted" style="margin:0 0 12px">将全部账单、规则与处理记录导出为一个备份文件。在 claude.ai 版、网页版或离线版中导入该文件，即可完成迁移。</p><div class="row"><button class="btn" data-act="backup">导出备份</button><label class="btn" for="backupIn">导入备份</label><input type="file" id="backupIn" accept=".json" hidden></div></div>` : ""}
+  ${!S.files.length ? `<div class="panel" style="margin-top:16px"><h3 style="margin-top:0">尚未导入账单</h3><p class="muted" style="margin:0 0 12px">导入第一份账单，或先载入示例，了解完整流程。</p><button class="btn" data-act="samples">载入示例账单</button></div>` : ""}`;
 }
 function fileCard(f){
   const c = fileCheck(f); const rows = f.sheets?.[f.sheet] || []; const hr = f.meta.headerRow; const header = hr>=0 ? rows[hr] : (rows[0]||[]);
@@ -955,16 +956,16 @@ function fileCard(f){
       <select id="ch-${f.id}" data-act="channel" data-id="${f.id}" aria-label="渠道">${Object.entries(CHANNELS).map(([k,l])=>`<option value="${k}" ${f.channel===k?"selected":""}>${l}</option>`).join("")}</select>
       <button class="btn sm ghost" data-act="discard" data-id="${f.id}">移除</button></div>
     <div class="row small" style="margin-top:6px">
-      <span class="chip ok">成功 ${c.ok} 笔</span>${c.failed?`<span class="chip bad">失败/关闭 ${c.failed}</span>`:""}${c.pend?`<span class="chip warn">处理中 ${c.pend}</span>`:""}
-      <span class="chip">汇总/说明行 ${r.summary.length}（已剔除）</span>${r.unparsed.length?`<span class="chip bad">无法解析 ${r.unparsed.length}</span>`:""}
-      <span class="muted">表头在第 ${hr+1} 行，前面 ${r.preLines} 行说明已跳过</span>
+      <span class="chip ok">成功 ${c.ok} 笔</span>${c.failed?`<span class="chip bad">无效 ${c.failed}</span>`:""}${c.pend?`<span class="chip warn">处理中 ${c.pend}</span>`:""}
+      <span class="chip">已剔除汇总与说明行 ${r.summary.length}</span>${r.unparsed.length?`<span class="chip bad">无法解析 ${r.unparsed.length}</span>`:""}
+      <span class="muted">表头位于第 ${hr+1} 行，已跳过前 ${r.preLines} 行说明</span>
     </div>
     <div class="checks">${c.checks.map(x=>`<div class="check ${x.pass===true?"pass":x.pass===false?"fail":""}"><span class="ic">${x.pass===true?"✓":x.pass===false?"✗":"·"}</span><span>${esc(x.text)}</span></div>`).join("")}</div>
     <div class="row" style="margin-top:8px">
-      ${!r.declared.filter(d=>d.label!=="总笔数").length && f.channel!=="income" ? `<label class="small muted" for="ut-${f.id}">账单上的支出合计（选填）</label><input type="number" step="0.01" id="ut-${f.id}" data-act="userTotal" data-id="${f.id}" style="width:130px" value="${esc(f.userTotal||"")}">` : ""}
-      ${c.failing ? `<label class="small"><input type="checkbox" id="ack-${f.id}" data-act="ack" data-id="${f.id}" ${f.ack?"checked":""}> 我已核对，差异原因清楚，可以保存</label>` : ""}
+      ${!r.declared.filter(d=>d.label!=="总笔数").length && f.channel!=="income" ? `<label class="small muted" for="ut-${f.id}">账单支出合计（选填）</label><input type="number" step="0.01" id="ut-${f.id}" data-act="userTotal" data-id="${f.id}" style="width:130px" value="${esc(f.userTotal||"")}">` : ""}
+      ${c.failing ? `<label class="small"><input type="checkbox" id="ack-${f.id}" data-act="ack" data-id="${f.id}" ${f.ack?"checked":""}> 已核对差异，确认保存</label>` : ""}
     </div>
-    <details ${hr<0||c.failing?"open":""}><summary>表头识别与列映射</summary>
+    <details ${hr<0||c.failing?"open":""}><summary>表头与列映射</summary>
       <div class="row" style="margin-top:8px">
         ${Object.keys(f.sheets||{}).length>1?`<label class="small muted">工作表 <select id="sh-${f.id}" data-act="sheet" data-id="${f.id}">${Object.keys(f.sheets).map(n=>`<option ${n===f.sheet?"selected":""}>${esc(n)}</option>`).join("")}</select></label>`:""}
         <label class="small muted">表头行 <input type="number" min="1" id="hr-${f.id}" data-act="headerRow" data-id="${f.id}" value="${hr+1}" style="width:70px"></label>
@@ -973,8 +974,8 @@ function fileCard(f){
       <div class="fmap">${Object.entries(FIELDS).map(([k,fd])=>`<label>${fd.label}<select id="mp-${f.id}-${k}" data-act="map" data-id="${f.id}" data-k="${k}">${colOpts(f.meta.map[k])}</select></label>`).join("")}</div>
       <div class="tw" style="margin-top:10px"><table><tbody>${rows.slice(Math.max(hr,0), Math.max(hr,0)+4).map((rw,i)=>`<tr>${(rw||[]).slice(0,12).map(v=>`<td class="small" style="${i===0?"font-weight:600":""}">${esc(cellStr(v))}</td>`).join("")}</tr>`).join("")}</tbody></table></div>
     </details>
-    ${r.summary.length?`<details><summary>剔除的汇总/说明行（${r.summary.length}）</summary><ul class="basis">${r.summary.map(s=>`<li>第${s.line}行：${esc(s.text)}</li>`).join("")}</ul></details>`:""}
-    ${r.unparsed.length?`<details open><summary>无法解析的行（${r.unparsed.length}）</summary><ul class="basis">${r.unparsed.map(s=>`<li>第${s.line}行（${esc(s.why)}）：${esc(s.text)}</li>`).join("")}</ul></details>`:""}
+    ${r.summary.length?`<details><summary>已剔除的汇总与说明行（${r.summary.length}）</summary><ul class="basis">${r.summary.map(s=>`<li>第${s.line}行：${esc(s.text)}</li>`).join("")}</ul></details>`:""}
+    ${r.unparsed.length?`<details open><summary>无法识别的行（${r.unparsed.length}）</summary><ul class="basis">${r.unparsed.map(s=>`<li>第${s.line}行（${esc(s.why)}）：${esc(s.text)}</li>`).join("")}</ul></details>`:""}
   </div>`;
 }
 
@@ -991,11 +992,11 @@ function vOverview(L,p){
   if (!keys.length) return emptyNote();
   const pm = {}; for (const arr of [p.cat,p.transfer,p.refund,p.dup,p.state]) for (const t of arr) pm[t.month]=(pm[t.month]||0)+1;
   const tot = keys.reduce((a,k)=>({spend:a.spend+ms[k].spend-ms[k].refund, income:a.income+ms[k].income}),{spend:0,income:0});
-  return `<h2>月度总览</h2>
-  <p class="lead">净消费 = 消费 − 已冲减的退款。内部转账、还款、失败/关闭的交易都不计入消费。收入只做记录。</p>
-  <div class="kpis"><div class="kpi"><div class="l">净消费（${keys.length} 个月）</div><div class="v">${yuan(tot.spend)}</div></div><div class="kpi"><div class="l">收入</div><div class="v" style="color:var(--inc)">${yuan(tot.income)}</div></div><div class="kpi"><div class="l">结余</div><div class="v">${yuan(tot.income-tot.spend)}</div></div><div class="kpi"><div class="l">待确认</div><div class="v" style="color:var(--warn)">${p.total} 项</div></div></div>
+  return `<h2>概览</h2>
+  <p class="lead">净消费为消费减去已冲减的退款。内部转账、还款及无效交易不计入消费；收入仅作记录。</p>
+  <div class="kpis"><div class="kpi"><div class="l">净消费（${keys.length} 个月）</div><div class="v">${yuan(tot.spend)}</div></div><div class="kpi"><div class="l">收入</div><div class="v" style="color:var(--inc)">${yuan(tot.income)}</div></div><div class="kpi"><div class="l">结余</div><div class="v">${yuan(tot.income-tot.spend)}</div></div><div class="kpi"><div class="l">待处理</div><div class="v" style="color:var(--warn)">${p.total} 项</div></div></div>
   <div class="panel chart" style="margin-top:12px">${barChart(keys.map(k=>({k, v:ms[k].spend-ms[k].refund, inc:ms[k].income})))}</div>
-  <div class="tw" style="margin-top:12px"><table><thead><tr><th>月份</th><th class="n">消费</th><th class="n">退款冲减</th><th class="n">净消费</th><th class="n">收入</th><th class="n">结余</th><th class="n">内部转账</th><th class="n">还款</th><th class="n">待确认</th></tr></thead><tbody>
+  <div class="tw" style="margin-top:12px"><table><thead><tr><th>月份</th><th class="n">消费</th><th class="n">退款冲减</th><th class="n">净消费</th><th class="n">收入</th><th class="n">结余</th><th class="n">内部转账</th><th class="n">还款</th><th class="n">待处理</th></tr></thead><tbody>
   ${keys.slice().reverse().map(k=>{const m=ms[k];const net=m.spend-m.refund;return `<tr><td class="t">${k}</td><td class="n">${yuan(m.spend)}</td><td class="n neg">${m.refund?"-"+yuan(m.refund):"—"}</td><td class="n"><strong>${yuan(net)}</strong></td><td class="n" style="color:var(--inc)">${yuan(m.income)}</td><td class="n">${yuan(m.income-net)}</td><td class="n muted">${yuan(m.internal)}</td><td class="n muted">${yuan(m.repay)}</td><td class="n">${pm[k]?`<span class="chip warn">${pm[k]}</span>`:"—"}</td></tr>`}).join("")}
   </tbody></table></div>`;
 }
@@ -1015,17 +1016,17 @@ function vMonth(L){
     <button class="btn sm" data-act="mPrev" ${i>=ms.length-1?"disabled":""} aria-label="上个月">← 上个月</button>
     <select id="curMonth" data-act="pickMonth" aria-label="月份">${ms.map(x=>`<option ${x===m?"selected":""}>${x}</option>`).join("")}</select>
     <button class="btn sm" data-act="mNext" ${i<=0?"disabled":""} aria-label="下个月">下个月 →</button></div></div>
-  <div class="kpis" style="margin-top:12px"><div class="kpi"><div class="l">净消费 · ${lines.filter(l=>l.amt>0).length} 笔</div><div class="v">${yuan(spend)}</div></div><div class="kpi"><div class="l">收入 · ${inc.length} 笔</div><div class="v" style="color:var(--inc)">${yuan(income)}</div></div><div class="kpi"><div class="l">结余</div><div class="v">${yuan(income-spend)}</div></div><div class="kpi"><div class="l">待确认</div><div class="v" style="color:${pn?"var(--warn)":"inherit"}">${pn} 项</div></div></div>
+  <div class="kpis" style="margin-top:12px"><div class="kpi"><div class="l">净消费 · ${lines.filter(l=>l.amt>0).length} 笔</div><div class="v">${yuan(spend)}</div></div><div class="kpi"><div class="l">收入 · ${inc.length} 笔</div><div class="v" style="color:var(--inc)">${yuan(income)}</div></div><div class="kpi"><div class="l">结余</div><div class="v">${yuan(income-spend)}</div></div><div class="kpi"><div class="l">待处理</div><div class="v" style="color:${pn?"var(--warn)":"inherit"}">${pn} 项</div></div></div>
   <div class="two" style="margin-top:14px">
-    <div class="panel"><h3 style="margin-top:0">这个月钱花在哪</h3>${catList.length?catList.map(([c,v])=>`<div style="margin:7px 0"><div class="row small"><span class="grow">${c}</span><span style="font-family:var(--f-num)">${yuan(v)} · ${spend?Math.round(v/spend*100):0}%</span></div><div class="meter"><i style="width:${spend?Math.max(0,v/spend*100):0}%"></i></div></div>`).join(""):`<p class="muted small">这个月没有消费。</p>`}</div>
-    <div class="panel"><h3 style="margin-top:0">其他资金流动</h3><div class="checks">
+    <div class="panel"><h3 style="margin-top:0">消费构成</h3>${catList.length?catList.map(([c,v])=>`<div style="margin:7px 0"><div class="row small"><span class="grow">${c}</span><span style="font-family:var(--f-num)">${yuan(v)} · ${spend?Math.round(v/spend*100):0}%</span></div><div class="meter"><i style="width:${spend?Math.max(0,v/spend*100):0}%"></i></div></div>`).join(""):`<p class="muted small">本月暂无消费。</p>`}</div>
+    <div class="panel"><h3 style="margin-top:0">其他资金往来</h3><div class="checks">
       <div class="check"><span class="ic">·</span><span>内部转账 / 不计收支：${other.filter(t=>t._type!=="还款").length} 笔，${yuan(other.filter(t=>t._type!=="还款").reduce((a,t)=>a+t.amount,0))}</span></div>
       <div class="check"><span class="ic">·</span><span>还款：${other.filter(t=>t._type==="还款").length} 笔，${yuan(other.filter(t=>t._type==="还款").reduce((a,t)=>a+t.amount,0))}</span></div>
-      <div class="check"><span class="ic">·</span><span>失败 / 关闭：${failed} 笔（不计入）</span></div>
+      <div class="check"><span class="ic">·</span><span>无效交易：${failed} 笔（不计入）</span></div>
       <div class="check"><span class="ic">·</span><span>收入合计：${yuan(income)}</span></div></div></div>
   </div>
   <h3>消费明细 · ${lines.length} 笔 · ${yuan(spend)}</h3>
-  ${lines.length ? `<div class="tw"><table><thead><tr><th>时间</th><th>渠道</th><th>对方 / 说明</th><th>分类</th><th class="n">金额</th><th>来源</th></tr></thead><tbody>${lines.map(l=>`<tr><td class="t">${l.t.date.slice(5)} ${l.t.time.slice(0,5)}</td><td class="small">${CHANNELS[l.t.channel]}</td><td class="wrapt">${txDesc(l.t)}${l.kind!=="消费"?`<div><span class="chip ${l.amt<0?"inc":""}">${l.kind}</span></div>`:""}</td><td>${l.amt>0?catSelect(l.t,"mc-"+l.t.id):`<span class="small muted">${l.cat}</span>`}</td><td class="n ${l.amt<0?"neg":""}">${yuan(l.amt)}</td><td class="src">${src(l.t)}</td></tr>`).join("")}</tbody></table></div>` : `<p class="muted">没有消费记录。</p>`}
+  ${lines.length ? `<div class="tw"><table><thead><tr><th>时间</th><th>渠道</th><th>交易对象与说明</th><th>分类</th><th class="n">金额</th><th>来源</th></tr></thead><tbody>${lines.map(l=>`<tr><td class="t">${l.t.date.slice(5)} ${l.t.time.slice(0,5)}</td><td class="small">${CHANNELS[l.t.channel]}</td><td class="wrapt">${txDesc(l.t)}${l.kind!=="消费"?`<div><span class="chip ${l.amt<0?"inc":""}">${l.kind}</span></div>`:""}</td><td>${l.amt>0?catSelect(l.t,"mc-"+l.t.id):`<span class="small muted">${l.cat}</span>`}</td><td class="n ${l.amt<0?"neg":""}">${yuan(l.amt)}</td><td class="src">${src(l.t)}</td></tr>`).join("")}</tbody></table></div>` : `<p class="muted">本月暂无消费记录。</p>`}
   ${inc.length ? `<h3>收入明细 · ${inc.length} 笔 · ${yuan(income)}</h3>${detailTable(inc.map(x=>x.t), false)}` : ""}`;
 }
 function barChart(data){
@@ -1036,10 +1037,10 @@ function barChart(data){
   for (let v=0; v<=top; v+=step) s += `<line x1="${pl}" x2="${W-pr}" y1="${y(v)}" y2="${y(v)}"/><text x="${pl-8}" y="${y(v)+4}" text-anchor="end">${(v/100).toLocaleString("zh-CN")}</text>`;
   s += `</g>`;
   data.forEach((d,i)=>{ s += `<rect class="bar inc" x="${cx(i)-bw/2-6}" y="${y(d.inc)}" width="${bw/2}" height="${y(0)-y(d.inc)}"/><rect class="bar" x="${cx(i)-bw/4}" y="${y(Math.max(d.v,0))}" width="${bw*0.75}" height="${y(0)-y(Math.max(d.v,0))}"/><text x="${cx(i)}" y="${H-8}" text-anchor="middle">${d.k}</text><text x="${cx(i)+bw*0.1}" y="${y(Math.max(d.v,0))-4}" text-anchor="middle" style="fill:var(--ink)">${Math.round(d.v/100).toLocaleString("zh-CN")}</text>`; });
-  return s + `</svg><div class="row small muted" style="margin-top:4px"><span><svg width="10" height="10"><rect class="bar" width="10" height="10"/></svg> 净消费</span><span><svg width="10" height="10"><rect class="bar inc" width="10" height="10"/></svg> 收入</span><span>单位：元</span></div>`;
+  return s + `</svg><div class="row small muted" style="margin-top:4px"><span><i class="sw"></i>净消费</span><span><i class="sw inc"></i>收入</span><span>单位：元</span></div>`;
 }
 function niceStep(x){ const p = Math.pow(10, Math.floor(Math.log10(Math.max(x,1)))); const n = x/p; return (n<=1?1:n<=2?2:n<=5?5:10)*p; }
-function emptyNote(){ return `<div class="panel" style="margin-top:20px"><h3 style="margin-top:0">这里还没有数据</h3><p class="muted" style="margin:0">到「导入与对账」上传账单后，这里会按月份汇总。</p></div>`; }
+function emptyNote(){ return `<div class="panel" style="margin-top:20px"><h3 style="margin-top:0">暂无数据</h3><p class="muted" style="margin:0">在“导入”中添加账单后，这里将按月呈现汇总。</p></div>`; }
 
 function vPivot(L){
   const ms = [...new Set(L.lines.map(l=>l.month))].sort().reverse(); if (!ms.length) return emptyNote();
@@ -1049,24 +1050,24 @@ function vPivot(L){
   const gc = globalCheck(L); const d = S.drill;
   const dl = d ? L.lines.filter(l=>(d.cat==="*"||l.cat===d.cat) && (d.month==="*"||l.month===d.month)).sort((a,b)=>ts(b.t)-ts(a.t)) : [];
   return `<h2>分类汇总</h2>
-  <p class="lead">点任意一个数字，下方会列出组成它的每一笔明细；明细合计和格子里的数字一致。退款冲减以负数计入原交易的分类。</p>
+  <p class="lead">点按任一金额，即可在下方查看构成该金额的全部交易，合计与表格一致。退款以负数计入原交易所属分类。</p>
   <div class="checks"><div class="check ${gc.ok?"pass":"fail"}"><span class="ic">${gc.ok?"✓":"✗"}</span><span>分类合计 ${yuan(gc.pivotSum)} = 月度合计 ${yuan(gc.monthSum)} = 明细合计 ${yuan(gc.detailSum)}</span></div></div>
   <div class="tw" style="margin-top:8px"><table><thead><tr><th>分类</th>${ms.map(m=>`<th class="n">${m}</th>`).join("")}<th class="n">合计</th></tr></thead><tbody>
   ${cats.map(c=>`<tr><td>${c===PENDING_CAT?`<span class="chip warn">${c}</span>`:c}</td>${ms.map(m=>{const x=v[c+"|"+m];return x?`<td class="n cell ${d&&d.cat===c&&d.month===m?"on":""}" data-act="drill" data-cat="${c}" data-month="${m}" tabindex="0">${yuan(x)}</td>`:`<td class="n muted">—</td>`}).join("")}<td class="n cell" data-act="drill" data-cat="${c}" data-month="*" tabindex="0"><strong>${yuan(rowT(c))}</strong></td></tr>`).join("")}
   <tr class="tot"><td>合计</td>${ms.map(m=>`<td class="n cell" data-act="drill" data-cat="*" data-month="${m}" tabindex="0">${yuan(colT(m))}</td>`).join("")}<td class="n">${yuan(ms.reduce((s,m)=>s+colT(m),0))}</td></tr>
   </tbody></table></div>
   ${d ? `<h3>${d.month==="*"?"全部月份":d.month} · ${d.cat==="*"?"全部分类":d.cat}：${dl.length} 笔，合计 ${yuan(dl.reduce((s,l)=>s+l.amt,0))}</h3>
-  <div class="tw"><table><thead><tr><th>时间</th><th>渠道</th><th>对方 / 说明</th><th>计入方式</th><th class="n">金额</th><th>来源</th></tr></thead><tbody>
+  <div class="tw"><table><thead><tr><th>时间</th><th>渠道</th><th>交易对象与说明</th><th>计入方式</th><th class="n">金额</th><th>来源</th></tr></thead><tbody>
   ${dl.map(l=>`<tr><td class="t">${l.t.date} ${l.t.time.slice(0,5)}</td><td>${CHANNELS[l.t.channel]}</td><td class="wrapt">${txDesc(l.t)}${l.o?`<div class="small muted">冲减 ${l.o.date} ${esc(l.o.cp)} ${yuan(l.o.amount)}</div>`:""}</td><td><span class="chip ${l.amt<0?"inc":""}">${l.kind}</span></td><td class="n ${l.amt<0?"neg":""}">${yuan(l.amt)}</td><td class="src">${src(l.t)}</td></tr>`).join("")}
   </tbody></table></div>` : ""}`;
 }
 function flagsOf(t){
   const f = [];
-  const st = effState(t); if (st==="failed") f.push(`<span class="chip bad">失败/关闭</span>`); if (st==="pending") f.push(`<span class="chip warn">处理中</span>`);
-  if (t._dup) f.push(autoDropped(t) ? `<span class="chip">重复（自动），不计入</span>` : isDropped(t) ? `<span class="chip">重复，不计入</span>` : (decided(t) ? `<span class="chip">已确认非重复</span>` : `<span class="chip warn">疑似重复</span>`));
-  if (t._type==="退款"){ const r = refundRes(t); f.push(r.apply ? `<span class="chip inc">${{orig:"冲减原交易",refundMonth:"冲减退款当月",income:"计为收入",ignore:"不影响消费"}[r.apply]}</span>` : `<span class="chip warn">退款待确认</span>`); }
+  const st = effState(t); if (st==="failed") f.push(`<span class="chip bad">无效</span>`); if (st==="pending") f.push(`<span class="chip warn">处理中</span>`);
+  if (t._dup) f.push(autoDropped(t) ? `<span class="chip">重复 · 自动排除</span>` : isDropped(t) ? `<span class="chip">重复 · 已排除</span>` : (decided(t) ? `<span class="chip">已确认非重复</span>` : `<span class="chip warn">疑似重复</span>`));
+  if (t._type==="退款"){ const r = refundRes(t); f.push(r.apply ? `<span class="chip inc">${{orig:"冲减原交易",refundMonth:"冲减退款当月",income:"计为收入",ignore:"不影响消费"}[r.apply]}</span>` : `<span class="chip warn">退款待处理</span>`); }
   if (returned(t)) f.push(`<span class="chip">已退回</span>`);
-  else if (t._type==="转账") f.push(tDec(t) ? `<span class="chip">${{"消费":"已判定为消费","非消费":"非消费","内部":"本人账户"}[tDec(t)]}${!t.transferDecision?"（规则）":""}</span>` : `<span class="chip warn">转账待判定</span>`);
+  else if (t._type==="转账") f.push(tDec(t) ? `<span class="chip">${{"消费":"计为消费","非消费":"不计为消费","内部":"本人账户间"}[tDec(t)]}${!t.transferDecision?" · 规则":""}</span>` : `<span class="chip warn">转账待确认</span>`);
   return f.join(" ");
 }
 function vDetail(){
@@ -1074,58 +1075,58 @@ function vDetail(){
   let list = S.txns.filter(t=>(f.month==="all"||t.month===f.month)&&(f.channel==="all"||t.channel===f.channel)&&(f.type==="all"||t._type===f.type)&&(f.cat==="all"||((t._type==="消费"||t._type==="转账")&&effCat(t)===f.cat))&&(!q||[t.cp,t.desc,t.rawType,t.remark,t.fileName].join(" ").toLowerCase().includes(q)));
   list.sort((a,b)=>ts(b)-ts(a));
   const types = ["消费","转账","退款","收入","内部转账","还款","不计收支"];
-  return `<h2>明细</h2><p class="lead">所有上传的交易都在这里，每行都标明来源文件和行号。鼠标停在来源上可以看到原始行内容。</p>
+  return `<h2>交易明细</h2><p class="lead">所有已导入的交易，均标注来源文件与行号。将指针悬停在来源上，可查看原始记录。</p>
   <div class="row">
     <select id="fMonth" data-act="filter" data-k="month" aria-label="月份"><option value="all">全部月份</option>${months().map(m=>`<option ${f.month===m?"selected":""}>${m}</option>`).join("")}</select>
     <select id="fChannel" data-act="filter" data-k="channel" aria-label="渠道"><option value="all">全部渠道</option>${Object.entries(CHANNELS).map(([k,l])=>`<option value="${k}" ${f.channel===k?"selected":""}>${l}</option>`).join("")}</select>
     <select id="fType" data-act="filter" data-k="type" aria-label="类型"><option value="all">全部类型</option>${types.map(x=>`<option ${f.type===x?"selected":""}>${x}</option>`).join("")}</select>
     <select id="fCat" data-act="filter" data-k="cat" aria-label="分类"><option value="all">全部分类</option>${[...allCats(),PENDING_CAT].map(x=>`<option ${f.cat===x?"selected":""}>${x}</option>`).join("")}</select>
-    <input type="text" id="fQ" data-act="filterQ" placeholder="搜索对方、说明" value="${esc(f.q)}" style="min-width:160px" class="grow">
-    <span class="small muted">${list.length} 笔 · 金额合计 ${yuan(list.reduce((s,t)=>s+(t.dir==="支出"?t.amount:t.dir==="收入"?-t.amount:0),0))}（支出为正）</span>
+    <input type="text" id="fQ" data-act="filterQ" placeholder="搜索交易对象或说明" value="${esc(f.q)}" style="min-width:160px" class="grow">
+    <span class="small muted">${list.length} 笔 · 金额合计 ${yuan(list.reduce((s,t)=>s+(t.dir==="支出"?t.amount:t.dir==="收入"?-t.amount:0),0))}（支出计为正数）</span>
   </div>
   ${list.length ? detailTable(list.slice(0,f.limit), true) : `<p class="muted">没有符合条件的交易。</p>`}
-  ${list.length>f.limit?`<button class="btn" style="margin-top:8px" data-act="more">再显示 300 笔</button>`:""}`;
+  ${list.length>f.limit?`<button class="btn" style="margin-top:8px" data-act="more">显示更多</button>`:""}`;
 }
 function detailTable(list, withCat){
-  return `<div class="tw" style="margin-top:10px"><table><thead><tr><th>时间</th><th>渠道</th><th>对方 / 说明</th><th>类型</th>${withCat?"<th>分类</th>":""}<th class="n">金额</th><th>标记</th><th>来源</th></tr></thead><tbody>
+  return `<div class="tw" style="margin-top:10px"><table><thead><tr><th>时间</th><th>渠道</th><th>交易对象与说明</th><th>类型</th>${withCat?"<th>分类</th>":""}<th class="n">金额</th><th>标记</th><th>来源</th></tr></thead><tbody>
   ${list.map(t=>`<tr><td class="t">${t.date}${t.time?" "+t.time.slice(0,5):""}</td><td>${CHANNELS[t.channel]}</td><td class="wrapt">${txDesc(t)}</td><td class="small">${t._type}${t.status?`<div class="muted">${esc(t.status)}</div>`:""}</td>
   ${withCat?`<td>${(t._type==="消费"||(t._type==="转账"&&tDec(t)==="消费"))?catSelect(t,"c-"+t.id):`<span class="muted small">—</span>`}</td>`:""}
-  <td class="n ${t.dir==="收入"?"neg":""}">${t.dir==="收入"?"+":t.dir==="支出"?"":"±"}${yuan(t.amount)}</td><td>${flagsOf(t)}${(t._type==="消费"||t._type==="转账")&&keyOf(t)?` <button class="btn sm ghost" data-act="toRule" data-k="${encK(keyOf(t))}">设规则</button>`:""}</td><td class="src">${src(t)}</td></tr>`).join("")}
+  <td class="n ${t.dir==="收入"?"neg":""}">${t.dir==="收入"?"+":t.dir==="支出"?"":"±"}${yuan(t.amount)}</td><td>${flagsOf(t)}${(t._type==="消费"||t._type==="转账")&&keyOf(t)?` <button class="btn sm ghost" data-act="toRule" data-k="${encK(keyOf(t))}">设定规则</button>`:""}</td><td class="src">${src(t)}</td></tr>`).join("")}
   </tbody></table></div>`;
 }
-const gkey = t => keyOf(t) || "（无对方）";
+const gkey = t => keyOf(t) || "（无交易对象）";
 function groupBy(arr){ const m = new Map(); for (const t of arr){ const k = gkey(t); if (!m.has(k)) m.set(k,[]); m.get(k).push(t); } return [...m.entries()].map(([k,list])=>({k, list, sum:list.reduce((a,t)=>a+t.amount,0)})).sort((a,b)=>b.sum-a.sum); }
 const encK = k => encodeURIComponent(k);
 function autoSection(){
   const auto = S.txns.filter(autoDropped);
-  return `<div class="panel" style="margin-top:14px"><label class="row small"><input type="checkbox" id="autoDup" data-act="autoDup" ${autoDupOn()?"checked":""}> 依据为「强」的重复自动处理（同一单号，或卡号尾号一致且同日同商户）：只计一次，两个来源都保留，可以随时撤销</label>
-  ${auto.length ? `<details><summary>已自动按重复处理 ${auto.length} 笔，合计 ${yuan(auto.reduce((a,t)=>a+t.amount,0))}</summary><div class="tw" style="margin-top:6px"><table><tbody>${auto.slice(0,300).map(t=>{const a=S.byId.get(t._dup.with);return `<tr><td class="t">${t.date}</td><td class="wrapt small">${esc(clean(t.cp)||clean(t.desc))}<div class="muted">保留：${CHANNELS[a.channel]} ${esc(clean(a.cp)||clean(a.desc))}</div></td><td class="n">${yuan(t.amount)}</td><td class="src">${src(t)}</td><td><button class="btn sm ghost" data-act="dup" data-id="${esc(t.id)}" data-v="keep">撤销，两笔都计入</button></td></tr>`}).join("")}</tbody></table></div>${auto.length>300?`<p class="small muted">只显示前 300 笔，完整列表在「明细」里按标记筛选或导出 Excel。</p>`:""}</details>` : ""}</div>`;
+  return `<div class="panel" style="margin-top:14px"><label class="row small"><input type="checkbox" id="autoDup" data-act="autoDup" ${autoDupOn()?"checked":""}> 自动处理强依据的重复记录（同一单号，或同日、同商户且卡号尾号一致）：仅计一次，保留两个来源，可随时撤销</label>
+  ${auto.length ? `<details><summary>已自动标为重复 ${auto.length} 笔，合计 ${yuan(auto.reduce((a,t)=>a+t.amount,0))}</summary><div class="tw" style="margin-top:6px"><table><tbody>${auto.slice(0,300).map(t=>{const a=S.byId.get(t._dup.with);return `<tr><td class="t">${t.date}</td><td class="wrapt small">${esc(clean(t.cp)||clean(t.desc))}<div class="muted">保留：${CHANNELS[a.channel]} ${esc(clean(a.cp)||clean(a.desc))}</div></td><td class="n">${yuan(t.amount)}</td><td class="src">${src(t)}</td><td><button class="btn sm ghost" data-act="dup" data-id="${esc(t.id)}" data-v="keep">撤销</button></td></tr>`}).join("")}</tbody></table></div>${auto.length>300?`<p class="small muted">仅显示前 300 笔。完整列表请在“交易明细”中查看，或导出 Excel。</p>`:""}</details>` : ""}</div>`;
 }
 function vPending(L,p){
-  if (!p.total) return autoSection() + `<h2>待确认</h2><div class="panel"><p style="margin:0">没有待确认的项目。${S.txns.length?"所有交易的分类、转账、退款和重复判断都已确定。":""}</p></div>`;
+  if (!p.total) return `<h2>待处理</h2><div class="panel"><p style="margin:0">没有待处理的项目。${S.txns.length?"所有交易的分类、转账、退款与重复判断均已完成。":""}</p></div>` + autoSection();
   const lim = S.pLimit || 40;
   const it = (t, body, actions) => `<div class="pitem"><div class="what"><span class="t muted small">${t.date} ${t.time.slice(0,5)}</span><strong>${esc(clean(t.cp)||clean(t.desc)||"—")}</strong><span class="muted small">${esc(clean(t.cp) && clean(t.desc)!==clean(t.cp) ? clean(t.desc) : "")}</span><span class="amt">${yuan(t.amount)}</span><span class="src small">${src(t)}</span></div>${body||""}<div class="row">${actions}</div></div>`;
   const head = (title, n, note, bulk) => `<div class="sechead"><h3>${title} <span class="badge">${n}</span></h3>${bulk||""}</div><p class="small muted" style="margin:0 0 8px">${note}</p>`;
-  const more = n => n>lim ? `<button class="btn sm ghost" data-act="pmore">再显示 40 组（还有 ${n-lim}）</button>` : "";
+  const more = n => n>lim ? `<button class="btn sm ghost" data-act="pmore">显示更多（另有 ${n-lim} 组）</button>` : "";
   const strong = p.dup.filter(t=>t._dup.level==="强");
   const withMatch = p.refund.filter(t=>refundRes(t).match);
   const gT = groupBy(p.transfer), gC = groupBy(p.cat);
   const grp = (g, body, actions) => `<div class="pitem"><div class="what"><strong>${esc(g.k)}</strong><span class="muted small">${g.list.length} 笔 · ${g.list[g.list.length-1].date} 至 ${g.list[0].date}</span><span class="amt">${yuan(g.sum)}</span></div>${body||""}<div class="row">${actions}</div>
     ${g.list.length>1?`<details><summary>查看这 ${g.list.length} 笔</summary><div class="tw" style="margin-top:6px"><table><tbody>${g.list.map(t=>`<tr><td class="t">${t.date} ${t.time.slice(0,5)}</td><td class="small wrapt">${esc(clean(t.desc)||t.rawType)}</td><td class="n">${yuan(t.amount)}</td><td class="src">${src(t)}</td></tr>`).join("")}</tbody></table></div></details>`:`<div class="small muted">${esc(clean(g.list[0].desc)||g.list[0].rawType)} · ${g.list[0].date} · <span class="src">${src(g.list[0])}</span></div>`}</div>`;
-  return `<h2>待确认清单</h2><p class="lead">同一个对方的交易合并成一组，一次处理一组。处理后汇总立即更新；已保存的账单会自动同步。</p>
-  <div class="kpis"><div class="kpi"><div class="l">疑似重复</div><div class="v">${p.dup.length}</div></div><div class="kpi"><div class="l">退款待匹配</div><div class="v">${p.refund.length}</div></div><div class="kpi"><div class="l">转账待判定</div><div class="v">${p.transfer.length}<span class="small muted"> 笔 / ${gT.length} 人</span></div></div><div class="kpi"><div class="l">分类待确认</div><div class="v">${p.cat.length}<span class="small muted"> 笔 / ${gC.length} 个对方</span></div></div></div>
+  return `<h2>待处理</h2><p class="lead">同一交易对象的记录已归为一组，可整组处理。处理结果即时计入汇总，并自动保存。</p>
+  <div class="kpis"><div class="kpi"><div class="l">疑似重复</div><div class="v">${p.dup.length}</div></div><div class="kpi"><div class="l">退款待匹配</div><div class="v">${p.refund.length}</div></div><div class="kpi"><div class="l">转账待确认</div><div class="v">${p.transfer.length}<span class="small muted"> 笔 · ${gT.length} 个对象</span></div></div><div class="kpi"><div class="l">待分类</div><div class="v">${p.cat.length}<span class="small muted"> 笔 · ${gC.length} 个对象</span></div></div></div>
   ${autoSection()}
-  ${p.dup.length ? head("疑似重复", p.dup.length, "同一笔钱可能被记了两次（两份账单时间段重叠，或者钱包和银行各记一次）。系统不会自动删除，请看依据后选择。", strong.length?`<button class="btn sm pri" data-act="bulkDup">依据为「强」的 ${strong.length} 笔全部按重复处理</button>`:"") + `<div class="pgroup">${p.dup.slice(0,lim).map(t=>{const a=S.byId.get(t._dup.with);return it(t, `<div class="small">可能与这笔重复：${CHANNELS[a.channel]} · ${a.date} ${a.time.slice(0,5)} · ${esc(clean(a.cp)||clean(a.desc))} · ${yuan(a.amount)} <span class="src">（${src(a)}）</span></div><ul class="basis">${t._dup.basis.map(b=>`<li>${esc(b)}</li>`).join("")}<li>依据强度：${t._dup.level}</li></ul>`,
-    `<button class="btn sm pri" data-act="dup" data-id="${esc(t.id)}" data-v="dup">是重复，只计一次</button><button class="btn sm" data-act="dup" data-id="${esc(t.id)}" data-v="keep">不是重复，两笔都计入</button>`)}).join("")}</div>${more(p.dup.length)}` : ""}
-  ${p.refund.length ? head("退款待匹配", p.refund.length, "跨月退款或找不到原交易的退款，先不计入，等你决定怎么处理。", (withMatch.length?`<button class="btn sm pri" data-act="bulkRefund">有原交易的 ${withMatch.length} 笔全部冲减原交易月份</button>`:"") + (p.refund.length-withMatch.length ? `<button class="btn sm" data-act="bulkRefundIgnore">找不到原交易的 ${p.refund.length-withMatch.length} 笔全部不计入</button>` : "")) + `<div class="pgroup">${p.refund.slice(0,lim).map(t=>{const r=refundRes(t);const o=r.match&&S.byId.get(r.match);const cands=(t._refund?.cands||[]).slice(0,4);return it(t, `<div class="small">${esc(r.reason||"")}${o?`：${o.date} · ${esc(clean(o.cp))} · ${esc(clean(o.desc))} · ${yuan(o.amount)}（${effCat(o)}）`:""}</div>${!o&&cands.length?`<div class="small">可能的原交易：${cands.map(c=>{const x=S.byId.get(c.id);return `<button class="btn sm ghost" data-act="refund" data-id="${esc(t.id)}" data-v="orig" data-m="${esc(x.id)}">${x.date} ${esc(clean(x.cp))} ${yuan(x.amount)}</button>`}).join("")}</div>`:""}`,
-    (o?`<button class="btn sm pri" data-act="refund" data-id="${esc(t.id)}" data-v="orig" data-m="${esc(o.id)}">冲减原交易月份（${o.month}）</button><button class="btn sm" data-act="refund" data-id="${esc(t.id)}" data-v="refundMonth" data-m="${esc(o.id)}">冲减到退款当月（${t.month}）</button>`:"")+`<button class="btn sm" data-act="refund" data-id="${esc(t.id)}" data-v="income">当作收入</button><button class="btn sm ghost" data-act="refund" data-id="${esc(t.id)}" data-v="ignore">不计入</button>`)}).join("")}</div>${more(p.refund.length)}` : ""}
-  ${gT.length ? head("转账：是不是消费？", p.transfer.length, "转给他人的钱，可能是消费（AA、房租、代购），也可能是借出或给家人。按对方分组，确认前不计入消费。") + `<div class="pgroup">${gT.slice(0,lim).map(g=>grp(g, "",
-    `<button class="btn sm pri" data-act="bulkTransfer" data-k="${encK(g.k)}" data-v="消费">${g.list.length>1?"全部":""}是消费</button><button class="btn sm" data-act="bulkTransfer" data-k="${encK(g.k)}" data-v="非消费">${g.list.length>1?"全部":""}不是消费（借出/给家人等）</button><button class="btn sm ghost" data-act="bulkTransfer" data-k="${encK(g.k)}" data-v="内部">转给本人账户</button>`)).join("")}</div>${more(gT.length)}` : ""}
-  ${gC.length ? head("分类待确认", p.cat.length, "没有命中分类规则的消费，暂时计入「待确认」分类。给一个对方选好分类后，这个对方的所有交易（包括以后上传的）都会用这个分类。",
-    (S.sampleCap ? `<button class="btn sm" data-act="suggestCat" ${S.sugBusy?"disabled":""}>${S.sugBusy?"Claude 正在看…":"请 Claude 给分类建议"}</button>` : "") + (gC.some(g=>S.catSug[g.k]) ? `<button class="btn sm pri" data-act="acceptSug">接受全部 ${gC.filter(g=>S.catSug[g.k]).length} 条建议</button>` : "")) + (S.sugErr?`<p class="small" style="color:var(--bad)">${esc(S.sugErr)}</p>`:"") + `<div class="pgroup">${gC.slice(0,lim).map(g=>grp(g, S.catSug[g.k] ? `<div class="small"><span class="chip acc">Claude 建议：${esc(S.catSug[g.k])}</span></div>` : "",
-    `<select id="gc-${encK(g.k)}" data-act="bulkCat" data-k="${encK(g.k)}" aria-label="分类"><option value="">选择分类…</option>${allCats().map(c=>`<option>${c}</option>`).join("")}</select>${S.catSug[g.k]?`<button class="btn sm" data-act="oneSug" data-k="${encK(g.k)}">用建议「${esc(S.catSug[g.k])}」</button>`:""}`)).join("")}</div>${more(gC.length)}` : ""}
-  ${p.state.length ? head("状态处理中", p.state.length, "交易还在处理中，不计入任何合计。") + `<div class="pgroup">${p.state.map(t=>it(t, `<div class="small muted">状态：${esc(t.status)}</div>`,
-    `<button class="btn sm" data-act="state" data-id="${esc(t.id)}" data-v="ok">按成功计入</button><button class="btn sm ghost" data-act="state" data-id="${esc(t.id)}" data-v="failed">按失败处理</button>`)).join("")}</div>` : ""}`;
+  ${p.dup.length ? head("疑似重复", p.dup.length, "同一笔款项可能被记录了两次，例如两份账单时间重叠，或钱包与银行各记一次。系统不会自动删除，请参考依据后选择。", strong.length?`<button class="btn sm pri" data-act="bulkDup">将 ${strong.length} 笔强依据记录标为重复</button>`:"") + `<div class="pgroup">${p.dup.slice(0,lim).map(t=>{const a=S.byId.get(t._dup.with);return it(t, `<div class="small">可能与这笔重复：${CHANNELS[a.channel]} · ${a.date} ${a.time.slice(0,5)} · ${esc(clean(a.cp)||clean(a.desc))} · ${yuan(a.amount)} <span class="src">（${src(a)}）</span></div><ul class="basis">${t._dup.basis.map(b=>`<li>${esc(b)}</li>`).join("")}<li>依据强度：${t._dup.level}</li></ul>`,
+    `<button class="btn sm pri" data-act="dup" data-id="${esc(t.id)}" data-v="dup">标为重复，仅计一次</button><button class="btn sm" data-act="dup" data-id="${esc(t.id)}" data-v="keep">并非重复，两笔均计入</button>`)}).join("")}</div>${more(p.dup.length)}` : ""}
+  ${p.refund.length ? head("退款待匹配", p.refund.length, "跨月退款或未找到原交易的退款暂不计入，待你确认处理方式。", (withMatch.length?`<button class="btn sm pri" data-act="bulkRefund">将 ${withMatch.length} 笔冲减至原交易月份</button>`:"") + (p.refund.length-withMatch.length ? `<button class="btn sm" data-act="bulkRefundIgnore">将 ${p.refund.length-withMatch.length} 笔无原交易的退款标为不计入</button>` : "")) + `<div class="pgroup">${p.refund.slice(0,lim).map(t=>{const r=refundRes(t);const o=r.match&&S.byId.get(r.match);const cands=(t._refund?.cands||[]).slice(0,4);return it(t, `<div class="small">${esc(r.reason||"")}${o?`：${o.date} · ${esc(clean(o.cp))} · ${esc(clean(o.desc))} · ${yuan(o.amount)}（${effCat(o)}）`:""}</div>${!o&&cands.length?`<div class="small">可能对应的原交易：${cands.map(c=>{const x=S.byId.get(c.id);return `<button class="btn sm ghost" data-act="refund" data-id="${esc(t.id)}" data-v="orig" data-m="${esc(x.id)}">${x.date} ${esc(clean(x.cp))} ${yuan(x.amount)}</button>`}).join("")}</div>`:""}`,
+    (o?`<button class="btn sm pri" data-act="refund" data-id="${esc(t.id)}" data-v="orig" data-m="${esc(o.id)}">冲减至原交易月份（${o.month}）</button><button class="btn sm" data-act="refund" data-id="${esc(t.id)}" data-v="refundMonth" data-m="${esc(o.id)}">冲减至退款当月（${t.month}）</button>`:"")+`<button class="btn sm" data-act="refund" data-id="${esc(t.id)}" data-v="income">计为收入</button><button class="btn sm ghost" data-act="refund" data-id="${esc(t.id)}" data-v="ignore">不计入</button>`)}).join("")}</div>${more(p.refund.length)}` : ""}
+  ${gT.length ? head("转账是否计为消费", p.transfer.length, "转给他人的款项，可能是消费（如 AA、房租、代购），也可能是借款或家庭往来。已按交易对象分组，确认前不计入消费。") + `<div class="pgroup">${gT.slice(0,lim).map(g=>grp(g, "",
+    `<button class="btn sm pri" data-act="bulkTransfer" data-k="${encK(g.k)}" data-v="消费">${g.list.length>1?"全部":""}计为消费</button><button class="btn sm" data-act="bulkTransfer" data-k="${encK(g.k)}" data-v="非消费">${g.list.length>1?"全部":""}不计为消费</button><button class="btn sm ghost" data-act="bulkTransfer" data-k="${encK(g.k)}" data-v="内部">本人账户间转账</button>`)).join("")}</div>${more(gT.length)}` : ""}
+  ${gC.length ? head("待分类", p.cat.length, "以下消费未匹配到分类规则，暂计入“待确认”。为某个交易对象选定分类后，该对象的全部交易（包括今后导入的）都将沿用此分类。",
+    (S.sampleCap ? `<button class="btn sm" data-act="suggestCat" ${S.sugBusy?"disabled":""}>${S.sugBusy?"正在生成建议…":"由 Claude 建议分类"}</button>` : "") + (gC.some(g=>S.catSug[g.k]) ? `<button class="btn sm pri" data-act="acceptSug">采纳全部 ${gC.filter(g=>S.catSug[g.k]).length} 条建议</button>` : "")) + (S.sugErr?`<p class="small" style="color:var(--bad)">${esc(S.sugErr)}</p>`:"") + `<div class="pgroup">${gC.slice(0,lim).map(g=>grp(g, S.catSug[g.k] ? `<div class="small"><span class="chip acc">建议：${esc(S.catSug[g.k])}</span></div>` : "",
+    `<select id="gc-${encK(g.k)}" data-act="bulkCat" data-k="${encK(g.k)}" aria-label="分类"><option value="">选择分类</option>${allCats().map(c=>`<option>${c}</option>`).join("")}</select>${S.catSug[g.k]?`<button class="btn sm" data-act="oneSug" data-k="${encK(g.k)}">采纳“${esc(S.catSug[g.k])}”</button>`:""}`)).join("")}</div>${more(gC.length)}` : ""}
+  ${p.state.length ? head("处理中的交易", p.state.length, "以下交易尚在处理中，暂不计入任何合计。") + `<div class="pgroup">${p.state.map(t=>it(t, `<div class="small muted">状态：${esc(t.status)}</div>`,
+    `<button class="btn sm" data-act="state" data-id="${esc(t.id)}" data-v="ok">视为成功</button><button class="btn sm ghost" data-act="state" data-id="${esc(t.id)}" data-v="failed">视为无效</button>`)).join("")}</div>` : ""}`;
 }
 function vRules(){
   const q = (S.rq||"").trim().toLowerCase();
@@ -1137,26 +1138,26 @@ function vRules(){
   }
   const gs = [...groups.values()].filter(g=>!q || g.k.toLowerCase().includes(q) || g.list.some(t=>[t.desc,t.rawType].join(" ").toLowerCase().includes(q))).sort((a,b)=>b.sum-a.sum);
   const lim = S.rLimit || 50;
-  const catOf = g => { const c = {}; for (const t of g.list) if (t._type==="消费" || tDec(t)==="消费") c[effCat(t)] = (c[effCat(t)]||0) + 1; const e = Object.entries(c).sort((a,b)=>b[1]-a[1]); return e.length ? e.map(([k,n])=>e.length>1?`${k}×${n}`:k).join("、") : "（转账，未算消费）"; };
+  const catOf = g => { const c = {}; for (const t of g.list) if (t._type==="消费" || tDec(t)==="消费") c[effCat(t)] = (c[effCat(t)]||0) + 1; const e = Object.entries(c).sort((a,b)=>b[1]-a[1]); return e.length ? e.map(([k,n])=>e.length>1?`${k}×${n}`:k).join("、") : "转账，未计为消费"; };
   const kwCount = r => S.txns.filter(t=>[t.cp,t.desc,t.rawType].join(" ").includes(r.kw)).length;
   const catOpts = sel => `<option value="">不指定分类</option>` + allCats().map(c=>`<option ${sel===c?"selected":""}>${c}</option>`).join("");
-  return `<h2>分类规则</h2><p class="lead">按「交易对方」或「关键词」设置分类、备注，以及转账要不要算消费。保存后立即作用到已有的全部交易，以后上传的账单也会自动套用。对方规则优先于关键词规则，关键词规则优先于系统内置规则。</p>
-  <div class="panel" style="margin-bottom:14px"><h3 style="margin-top:0">自定义分类</h3><p class="small muted" style="margin:0 0 8px">加好的分类会出现在所有「选择分类」的下拉框里，也会用于分类汇总、支出分析和 Claude 分类建议。</p>
+  return `<h2>分类规则</h2><p class="lead">按交易对象或关键词设定分类、备注，以及转账是否计为消费。规则保存后即刻应用于全部交易，并自动适用于今后导入的账单。优先级依次为：对象规则、关键词规则、系统规则。</p>
+  <div class="panel" style="margin-bottom:14px"><h3 style="margin-top:0">自定义分类</h3><p class="small muted" style="margin:0 0 12px">新增的分类将出现在所有分类选项中，并用于分类汇总、消费洞察与 Claude 分类建议。</p>
     <div class="row">${allCats().map(c=>(S.rules.customCats||[]).includes(c) ? `<span class="chip acc">${esc(c)} <button class="btn sm ghost" style="padding:0 4px" data-act="catDel" data-c="${encK(c)}" aria-label="删除分类 ${esc(c)}">×</button></span>` : `<span class="chip">${esc(c)}</span>`).join(" ")}</div>
-    <div class="row" style="margin-top:10px"><input type="text" id="newCat" placeholder="新分类名称，例如：宠物、化妆品、学习" maxlength="12" style="width:240px"><button class="btn pri sm" data-act="catAdd">添加分类</button></div>
+    <div class="row" style="margin-top:10px"><input type="text" id="newCat" placeholder="分类名称，例如：宠物、美妆、学习" maxlength="12" style="width:240px"><button class="btn pri sm" data-act="catAdd">添加分类</button></div>
   </div>
-  <div class="panel"><h3 style="margin-top:0">关键词规则</h3><p class="small muted" style="margin:0 0 8px">对方名称或商品说明里包含这个词，就套用这条规则。例如关键词「天梯」可以同时匹配「广州天梯网络科技有限公司」和「天梯互娱」。</p>
-    <div class="row"><input type="text" id="kwText" placeholder="关键词，例如：天梯" style="width:160px"><select id="kwCat" aria-label="分类">${catOpts("")}</select><input type="text" id="kwNote" placeholder="备注（选填）" class="grow" style="min-width:140px"><label class="small"><input type="checkbox" id="kwSpend"> 转账也算消费</label><button class="btn pri sm" data-act="kwAdd">添加规则</button></div>
+  <div class="panel"><h3 style="margin-top:0">关键词规则</h3><p class="small muted" style="margin:0 0 12px">交易对象或商品说明中包含该关键词时，即套用此规则。例如“天梯”可同时匹配“广州天梯网络科技有限公司”与“天梯互娱”。</p>
+    <div class="row"><input type="text" id="kwText" placeholder="关键词，例如：天梯" style="width:160px"><select id="kwCat" aria-label="分类">${catOpts("")}</select><input type="text" id="kwNote" placeholder="备注（选填）" class="grow" style="min-width:140px"><label class="small"><input type="checkbox" id="kwSpend"> 转账计为消费</label><button class="btn pri sm" data-act="kwAdd">添加规则</button></div>
     ${S.rules.kw.length ? `<div class="tw" style="margin-top:10px"><table><thead><tr><th>关键词</th><th>分类</th><th>备注</th><th>转账算消费</th><th class="n">匹配</th><th></th></tr></thead><tbody>${S.rules.kw.map((r,i)=>`<tr><td><strong>${esc(r.kw)}</strong></td><td>${esc(r.cat||"—")}</td><td class="small">${esc(r.note||"—")}</td><td>${r.asSpend?"是":"—"}</td><td class="n">${kwCount(r)} 笔</td><td><button class="btn sm ghost" data-act="kwDel" data-i="${i}">删除</button></td></tr>`).join("")}</tbody></table></div>` : ""}
   </div>
-  <h3>按交易对方设置</h3>
-  <div class="row"><input type="text" id="rq" placeholder="搜索对方，例如：天梯、清黎" value="${esc(S.rq||"")}" class="grow" style="min-width:200px"><span class="small muted">${gs.length} 个对方</span></div>
-  <div class="tw" style="margin-top:10px"><table><thead><tr><th>交易对方</th><th class="n">笔数</th><th class="n">金额</th><th>当前分类</th><th>备注</th><th></th></tr></thead><tbody>
+  <h3>交易对象规则</h3>
+  <div class="row"><input type="text" id="rq" placeholder="搜索交易对象" value="${esc(S.rq||"")}" class="grow" style="min-width:200px"><span class="small muted">${gs.length} 个对象</span></div>
+  <div class="tw" style="margin-top:10px"><table><thead><tr><th>交易对象</th><th class="n">笔数</th><th class="n">金额</th><th>当前分类</th><th>备注</th><th></th></tr></thead><tbody>
   ${gs.slice(0,lim).map(g=>{ const ru = S.rules.cat[g.k] || S.rules.meta[g.k]; const m = S.rules.meta[g.k]||{}; const edit = S.editK===g.k;
-    return `<tr><td class="wrapt"><strong>${esc(g.k)}</strong>${ru?` <span class="chip acc">已设规则</span>`:""}${g.tr?`<div class="small muted">其中转账 ${g.tr} 笔${tDec(g.list.find(t=>t._type==="转账"))==="消费"?"，已算消费":""}</div>`:""}</td><td class="n">${g.list.length}</td><td class="n">${yuan(g.sum)}</td><td class="small">${esc(catOf(g))}</td><td class="small">${esc(m.note||"—")}</td><td>${edit?"":`<button class="btn sm" data-act="ruleEdit" data-k="${encK(g.k)}">设置</button>`}</td></tr>
-    ${edit?`<tr><td colspan="6" style="background:var(--accent-soft)"><div class="row"><label class="small">分类 <select id="reCat">${catOpts(S.rules.cat[g.k]||"")}</select></label><input type="text" id="reNote" placeholder="备注，例如：游戏币充值账号" value="${esc(m.note||"")}" class="grow" style="min-width:180px">${g.tr?`<label class="small"><input type="checkbox" id="reSpend" ${m.asSpend?"checked":""}> 转给这个对方的钱算消费</label>`:""}<button class="btn pri sm" data-act="ruleSave" data-k="${encK(g.k)}">保存，应用到全部 ${g.list.length} 笔</button>${ru?`<button class="btn sm ghost" data-act="ruleClear" data-k="${encK(g.k)}">删除规则</button>`:""}<button class="btn sm ghost" data-act="ruleCancel">取消</button></div><p class="small muted" style="margin:6px 0 0">保存后，这个对方之前单独改过的分类会统一改成这里的设置。</p></td></tr>`:""}`; }).join("")}
+    return `<tr><td class="wrapt"><strong>${esc(g.k)}</strong>${ru?` <span class="chip acc">已设定</span>`:""}${g.tr?`<div class="small muted">其中转账 ${g.tr} 笔${tDec(g.list.find(t=>t._type==="转账"))==="消费"?"，已算消费":""}</div>`:""}</td><td class="n">${g.list.length}</td><td class="n">${yuan(g.sum)}</td><td class="small">${esc(catOf(g))}</td><td class="small">${esc(m.note||"—")}</td><td>${edit?"":`<button class="btn sm" data-act="ruleEdit" data-k="${encK(g.k)}">编辑</button>`}</td></tr>
+    ${edit?`<tr><td colspan="6" style="background:var(--accent-soft)"><div class="row"><label class="small">分类 <select id="reCat">${catOpts(S.rules.cat[g.k]||"")}</select></label><input type="text" id="reNote" placeholder="备注（选填）" value="${esc(m.note||"")}" class="grow" style="min-width:180px">${g.tr?`<label class="small"><input type="checkbox" id="reSpend" ${m.asSpend?"checked":""}> 转给该对象的款项计为消费</label>`:""}<button class="btn pri sm" data-act="ruleSave" data-k="${encK(g.k)}">保存并应用于 ${g.list.length} 笔交易</button>${ru?`<button class="btn sm ghost" data-act="ruleClear" data-k="${encK(g.k)}">删除规则</button>`:""}<button class="btn sm ghost" data-act="ruleCancel">取消</button></div><p class="small muted" style="margin:8px 0 0">保存后，该对象此前单独调整过的分类将统一为此设置。</p></td></tr>`:""}`; }).join("")}
   </tbody></table></div>
-  ${gs.length>lim?`<button class="btn" style="margin-top:8px" data-act="rMore">再显示 50 个</button>`:""}`;
+  ${gs.length>lim?`<button class="btn" style="margin-top:8px" data-act="rMore">显示更多</button>`:""}`;
 }
 function applyRuleTo(match, asSpend){
   let n = 0;
@@ -1168,24 +1169,24 @@ function applyRuleTo(match, asSpend){
 }
 function vFailed(){
   const list = S.txns.filter(t=>effState(t)==="failed").sort((a,b)=>ts(b)-ts(a));
-  return `<h2>失败 / 关闭的交易</h2><p class="lead">这些交易没有实际扣款或已被关闭，单独列出，不计入任何合计。</p>${list.length?detailTable(list,false):`<p class="muted">没有失败或关闭的交易。</p>`}`;
+  return `<h2>无效交易</h2><p class="lead">以下交易未实际扣款或已关闭，单独列示，不计入任何合计。</p>${list.length?detailTable(list,false):`<p class="muted">没有无效交易。</p>`}`;
 }
 function vTransfer(){
   const ok = t => effState(t)==="ok";
   const g = (ty) => S.txns.filter(t=>ok(t)&&t._type===ty).sort((a,b)=>ts(b)-ts(a));
   const sum = a => yuan(a.reduce((s,t)=>s+t.amount,0));
   const internal = g("内部转账"), repay = g("还款"), neutral = g("不计收支"), tr = g("转账");
-  return `<h2>转账与还款</h2><p class="lead">这些资金流动不是消费：钱只是在你的账户之间移动，或者在还之前已经记过的消费。</p>
+  return `<h2>转账与还款</h2><p class="lead">以下资金往来不属于消费：或在你的账户之间流转，或用于偿还此前已计入的消费。</p>
   <h3>内部转账 · ${internal.length} 笔 · ${sum(internal)}</h3>${internal.length?detailTable(internal,false):`<p class="muted small">无</p>`}
-  <h3>还款 · ${repay.length} 笔 · ${sum(repay)}</h3><p class="small muted" style="margin:0">信用卡、花呗、白条的还款。对应的消费已在刷卡或支付时记过，这里不再重复计入。</p>${repay.length?detailTable(repay,false):`<p class="muted small">无</p>`}
-  ${neutral.length?`<h3>渠道标为不计收支 · ${neutral.length} 笔 · ${sum(neutral)}</h3>${detailTable(neutral,false)}`:""}
+  <h3>还款 · ${repay.length} 笔 · ${sum(repay)}</h3><p class="small muted" style="margin:0">信用卡、花呗与白条的还款。对应消费已在支付时计入，此处不再重复统计。</p>${repay.length?detailTable(repay,false):`<p class="muted small">无</p>`}
+  ${neutral.length?`<h3>渠道标记为不计收支 · ${neutral.length} 笔 · ${sum(neutral)}</h3>${detailTable(neutral,false)}`:""}
   <h3>转给他人 · ${tr.length} 笔 · ${sum(tr)}</h3>${tr.length?detailTable(tr,true):`<p class="muted small">无</p>`}`;
 }
 function vIncome(L){
   const by = {}; for (const i of L.income) by[i.month]=(by[i.month]||0)+i.amt;
   const list = L.income.map(i=>i.t).sort((a,b)=>ts(b)-ts(a));
-  return `<h2>收入</h2><p class="lead">收入只做记录和月度合计，不参与消费分析。计为收入的退款也列在这里。</p>
-  ${Object.keys(by).length?`<div class="tw"><table><thead><tr><th>月份</th><th class="n">收入合计</th><th class="n">笔数</th></tr></thead><tbody>${Object.keys(by).sort().reverse().map(m=>`<tr><td class="t">${m}</td><td class="n" style="color:var(--inc)">${yuan(by[m])}</td><td class="n">${L.income.filter(i=>i.month===m).length}</td></tr>`).join("")}</tbody></table></div>${detailTable(list,false)}`:`<p class="muted">还没有收入记录。</p>`}`;
+  return `<h2>收入</h2><p class="lead">收入仅作记录与月度汇总，不参与消费分析。计为收入的退款同样列示于此。</p>
+  ${Object.keys(by).length?`<div class="tw"><table><thead><tr><th>月份</th><th class="n">收入合计</th><th class="n">笔数</th></tr></thead><tbody>${Object.keys(by).sort().reverse().map(m=>`<tr><td class="t">${m}</td><td class="n" style="color:var(--inc)">${yuan(by[m])}</td><td class="n">${L.income.filter(i=>i.month===m).length}</td></tr>`).join("")}</tbody></table></div>${detailTable(list,false)}`:`<p class="muted">暂无收入记录。</p>`}`;
 }
 
 /* ============ 支出分析 ============ */
@@ -1208,17 +1209,17 @@ function vAnalysis(L){
   const from = S.anFrom || ms[0], to = S.anTo || ms[ms.length-1];
   const st = spendStats(L, from, to);
   const monthsN = Math.max(1, st.months.length);
-  return `<h2>支出分析</h2><p class="lead">只看消费：已剔除内部转账、还款和失败交易，退款已冲减。先看下面的统计，再让 Claude 以支出分析师的角度给出建议。</p>
+  return `<h2>消费洞察</h2><p class="lead">仅统计消费：已排除内部转账、还款与无效交易，退款已冲减。可先查看下方统计，再请 Claude 以支出分析师的视角给出建议。</p>
   <div class="row"><label class="small muted">从 <select id="anFrom" data-act="anRange" data-k="anFrom">${ms.map(m=>`<option ${m===from?"selected":""}>${m}</option>`).join("")}</select></label>
   <label class="small muted">到 <select id="anTo" data-act="anRange" data-k="anTo">${ms.map(m=>`<option ${m===to?"selected":""}>${m}</option>`).join("")}</select></label>
-  ${S.sampleCap ? `<button class="btn pri" data-act="analyze" ${S.anBusy?"disabled":""}>${S.anBusy?"正在分析…":"生成分析建议"}</button>` : `<span class="small muted">在 claude.ai 打开这个页面时，可以让 Claude 生成分析建议</span>`}</div>
-  <div class="kpis" style="margin-top:12px"><div class="kpi"><div class="l">净消费</div><div class="v">${yuan(st.total)}</div></div><div class="kpi"><div class="l">月均</div><div class="v">${yuan(Math.round(st.total/monthsN))}</div></div><div class="kpi"><div class="l">30 元以下小额</div><div class="v">${st.small.n} 笔 · ${yuan(st.small.s)}</div></div><div class="kpi"><div class="l">22 点后消费</div><div class="v">${st.night.n} 笔 · ${yuan(st.night.s)}</div></div></div>
+  ${S.sampleCap ? `<button class="btn pri" data-act="analyze" ${S.anBusy?"disabled":""}>${S.anBusy?"正在分析…":"生成分析"}</button>` : `<span class="small muted">在 claude.ai 中打开本页，即可由 Claude 生成分析。</span>`}</div>
+  <div class="kpis" style="margin-top:12px"><div class="kpi"><div class="l">净消费</div><div class="v">${yuan(st.total)}</div></div><div class="kpi"><div class="l">月均</div><div class="v">${yuan(Math.round(st.total/monthsN))}</div></div><div class="kpi"><div class="l">30 元以下小额消费</div><div class="v">${st.small.n} 笔 · ${yuan(st.small.s)}</div></div><div class="kpi"><div class="l">22 点后的消费</div><div class="v">${st.night.n} 笔 · ${yuan(st.night.s)}</div></div></div>
   <div class="two" style="margin-top:12px">
     <div class="panel"><h3 style="margin-top:0">分类占比</h3>${st.byCat.map(([c,v])=>`<div style="margin:6px 0"><div class="row small"><span class="grow">${c}</span><span class="n" style="font-family:var(--f-num)">${yuan(v)} · ${st.total?Math.round(v/st.total*100):0}%</span></div><div class="meter"><i style="width:${st.total?Math.max(0,v/st.total*100):0}%"></i></div></div>`).join("")}</div>
-    <div class="panel"><h3 style="margin-top:0">花钱最多的商户</h3><div class="tw"><table><thead><tr><th>对方</th><th class="n">笔数</th><th class="n">金额</th></tr></thead><tbody>${st.merchants.slice(0,10).map(m=>`<tr><td class="wrapt">${esc(m.name)}<div class="small muted">${m.cat}</div></td><td class="n">${m.n}</td><td class="n">${yuan(m.s)}</td></tr>`).join("")}</tbody></table></div></div>
+    <div class="panel"><h3 style="margin-top:0">消费最高的商户</h3><div class="tw"><table><thead><tr><th>商户</th><th class="n">笔数</th><th class="n">金额</th></tr></thead><tbody>${st.merchants.slice(0,10).map(m=>`<tr><td class="wrapt">${esc(m.name)}<div class="small muted">${m.cat}</div></td><td class="n">${m.n}</td><td class="n">${yuan(m.s)}</td></tr>`).join("")}</tbody></table></div></div>
   </div>
   ${S.anErr?`<p style="color:var(--bad)">${esc(S.anErr)}</p>`:""}
-  ${S.anBusy?`<div class="panel" style="margin-top:12px"><p class="muted small" style="margin:0">Claude 正在读这段时间的消费数据…</p>${S.anText?`<pre class="small muted" style="white-space:pre-wrap;margin:6px 0 0">${esc(S.anText.slice(-400))}</pre>`:""}</div>`:""}
+  ${S.anBusy?`<div class="panel" style="margin-top:12px"><p class="muted small" style="margin:0">Claude 正在分析所选期间的消费数据…</p>${S.anText?`<pre class="small muted" style="white-space:pre-wrap;margin:6px 0 0">${esc(S.anText.slice(-400))}</pre>`:""}</div>`:""}
   ${S.anResult?anView(S.anResult):""}
   ${S.analyses.length?`<h3>历史分析</h3><div class="stack">${S.analyses.map(a=>`<details class="panel"><summary>${esc(a.range)} · ${esc((a.at||"").slice(0,16).replace("T"," "))}</summary>${anView(a.result)}</details>`).join("")}</div>`:""}`;
 }
@@ -1227,10 +1228,10 @@ function anView(r){
   const li = arr => `<ul>${(arr||[]).map(x=>`<li>${x}</li>`).join("")}</ul>`;
   return `<div class="panel an" style="margin-top:12px">
     <h3 style="margin-top:0">分析结果 · ${esc(r.range||"")}</h3>${r.summary?`<p>${esc(r.summary)}</p>`:""}
-    <h4>不必要 / 无意识的支出</h4>${li((r.unconscious||[]).map(x=>`<strong>${esc(x.item)}</strong>：${esc(x.evidence)}${x.amount?`（${esc(x.amount)}）`:""}`))}
-    <h4>最浪费钱的 3 个类别</h4>${li((r.top3||[]).map((x,i)=>`<strong>${i+1}. ${esc(x.category)}</strong> ${x.amount?`<span style="font-family:var(--f-num)">${esc(x.amount)}</span>`:""}：${esc(x.why)}`))}
-    <h4>快速收益</h4>${li((r.quick_wins||[]).map(x=>`<strong>${esc(x.action)}</strong>${x.saving?` · 每月约省 ${esc(x.saving)}`:""}<div class="small muted">${esc(x.detail||"")}</div>`))}
-    <h4>行为改变</h4>${li((r.behavior_changes||[]).map(x=>`<strong>${esc(x.habit)}</strong> → ${esc(x.action)}${x.saving?` · 每月约省 ${esc(x.saving)}`:""}`))}
+    <h4>不必要与无意识的支出</h4>${li((r.unconscious||[]).map(x=>`<strong>${esc(x.item)}</strong>：${esc(x.evidence)}${x.amount?`（${esc(x.amount)}）`:""}`))}
+    <h4>最值得优化的三个类别</h4>${li((r.top3||[]).map((x,i)=>`<strong>${i+1}. ${esc(x.category)}</strong> ${x.amount?`<span style="font-family:var(--f-num)">${esc(x.amount)}</span>`:""}：${esc(x.why)}`))}
+    <h4>快速收益</h4>${li((r.quick_wins||[]).map(x=>`<strong>${esc(x.action)}</strong>${x.saving?` · 预计每月节省 ${esc(x.saving)}`:""}<div class="small muted">${esc(x.detail||"")}</div>`))}
+    <h4>行为改变</h4>${li((r.behavior_changes||[]).map(x=>`<strong>${esc(x.habit)}</strong> → ${esc(x.action)}${x.saving?` · 预计每月节省 ${esc(x.saving)}`:""}`))}
   </div>`;
 }
 async function analyze(){
@@ -1261,7 +1262,7 @@ ${JSON.stringify(data)}`;
     res.range = data.区间; S.anResult = res;
     if (S.db && S.uid){ const id = "an_" + Date.now(); const doc = {range:data.区间, at:new Date().toISOString(), result:res}; await col().doc(id).set(doc); S.analyses.unshift({id, ...doc}); }
   } catch(e){
-    S.anErr = e?.code==="not_granted" ? "没有获得调用 Claude 的授权。" : e?.code==="rate_limited" ? "请求太频繁，请稍后再试。" : `分析失败：${e?.message||e}`;
+    S.anErr = e?.code==="not_granted" ? "尚未授权调用 Claude。" : e?.code==="rate_limited" ? "请求过于频繁，请稍后再试。" : `分析未能完成：${e?.message||e}`;
   }
   S.anBusy = false; render();
 }
@@ -1279,8 +1280,8 @@ ${JSON.stringify(items)}`;
     const res = await S.sampleCap.json(prompt, {modelTier:"quick"});
     const sug = res?.建议 || {}; let n = 0;
     for (const g of groups){ const v = sug[g.k]; if (v && allCats().includes(v)){ S.catSug[g.k] = v; n++; } }
-    if (!n) S.sugErr = "Claude 没有给出有把握的建议，这些还需要你手动选择。";
-  } catch(e){ S.sugErr = e?.code==="not_granted" ? "没有获得调用 Claude 的授权。" : e?.code==="rate_limited" ? "请求太频繁，请稍后再试。" : `获取建议失败：${e?.message||e}`; }
+    if (!n) S.sugErr = "Claude 暂无把握较高的建议，请手动选择分类。";
+  } catch(e){ S.sugErr = e?.code==="not_granted" ? "尚未授权调用 Claude。" : e?.code==="rate_limited" ? "请求过于频繁，请稍后再试。" : `未能获取建议：${e?.message||e}`; }
   S.sugBusy = false; render();
 }
 
@@ -1288,15 +1289,15 @@ ${JSON.stringify(items)}`;
 async function exportXlsx(){
   const L = ledger(), p = pendingItems(), ms = monthStats(L);
   const row = t => [t.date, t.time, CHANNELS[t.channel], t.cp, t.desc, noteOf(t), t._type, (t._type==="消费"||t._type==="转账")?effCat(t):"", t.dir, plain(t.amount), t.status, t.fileName, t.line, t.orderId];
-  const H = ["日期","时间","渠道","对方","说明","备注","类型","分类","收/支","金额","状态","来源文件","原始行号","交易单号"];
+  const H = ["日期","时间","渠道","交易对象","说明","备注","类型","分类","收/支","金额","状态","来源文件","原始行号","交易单号"];
   const wb = XLSX.utils.book_new(); const add = (name, aoa) => XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), name);
   add("月度总览", [["月份","消费","退款冲减","净消费","收入","结余","内部转账","还款"], ...Object.keys(ms).sort().map(k=>{const m=ms[k];return [k,plain(m.spend),plain(m.refund),plain(m.spend-m.refund),plain(m.income),plain(m.income-m.spend+m.refund),plain(m.internal),plain(m.repay)]})]);
   const mk = [...new Set(L.lines.map(l=>l.month))].sort(); const cats=[...new Set([...allCats(),PENDING_CAT,...L.lines.map(l=>l.cat)])].filter(c=>L.lines.some(l=>l.cat===c));
   add("分类汇总", [["分类",...mk,"合计"], ...cats.map(c=>{const vs=mk.map(m=>plain(L.lines.filter(l=>l.cat===c&&l.month===m).reduce((s,l)=>s+l.amt,0)));return [c,...vs,+vs.reduce((a,b)=>a+b,0).toFixed(2)]})]);
   add("消费明细", [["计入月份","分类","计入方式","计入金额",...H], ...L.lines.map(l=>[l.month,l.cat,l.kind,plain(l.amt),...row(l.t)])]);
   add("全部明细", [H, ...S.txns.slice().sort((a,b)=>ts(a)-ts(b)).map(row)]);
-  add("待确认", [["问题",...H], ...[["疑似重复",p.dup],["退款待匹配",p.refund],["转账待判定",p.transfer],["分类待确认",p.cat],["处理中",p.state]].flatMap(([k,a])=>a.map(t=>[k,...row(t)]))]);
-  add("失败关闭", [H, ...S.txns.filter(t=>effState(t)==="failed").map(row)]);
+  add("待处理", [["事项",...H], ...[["疑似重复",p.dup],["退款待匹配",p.refund],["转账待确认",p.transfer],["待分类",p.cat],["处理中",p.state]].flatMap(([k,a])=>a.map(t=>[k,...row(t)]))]);
+  add("无效交易", [H, ...S.txns.filter(t=>effState(t)==="failed").map(row)]);
   add("转账与还款", [H, ...S.txns.filter(t=>effState(t)==="ok"&&["内部转账","还款","不计收支","转账"].includes(t._type)).map(row)]);
   add("收入", [H, ...L.income.map(i=>row(i.t))]);
   const buf = XLSX.write(wb, {bookType:"xlsx", type:"array"}); const name = `账本_${fmtDate(new Date()).replace(/-/g,"")}.xlsx`;
@@ -1325,7 +1326,7 @@ document.addEventListener("click", e => {
   else if (a==="suggestCat") suggestCats();
   else if (a==="acceptSug" || a==="oneSug"){
     const only = a==="oneSug" ? decodeURIComponent(el.dataset.k) : null;
-    for (const t of pendingItems().cat){ const k = gkey(t), v = S.catSug[k]; if (v && (!only || k===only)){ t.cat = v; markDirty(t); if (k!=="（无对方）") S.rules.cat[k] = v; } }
+    for (const t of pendingItems().cat){ const k = gkey(t), v = S.catSug[k]; if (v && (!only || k===only)){ t.cat = v; markDirty(t); if (k!=="（无交易对象）") S.rules.cat[k] = v; } }
     settingsChanged(); recompute(); render();
   }
   else if (a==="ruleEdit"){ S.editK = decodeURIComponent(el.dataset.k); render(); }
@@ -1338,32 +1339,32 @@ document.addEventListener("click", e => {
     if (cat) S.rules.cat[k] = cat; else delete S.rules.cat[k];
     if (note || asSpend) S.rules.meta[k] = {...(note?{note}:{}), ...(asSpend?{asSpend:true}:{})}; else delete S.rules.meta[k];
     const n = applyRuleTo(t => gkey(t)===k, asSpend);
-    S.editK = null; S.msg = a==="ruleSave" ? `已为「${k}」设置规则，作用到 ${n} 笔交易` : `已删除「${k}」的规则`; render();
+    S.editK = null; S.msg = a==="ruleSave" ? `已为“${k}”设定规则，应用于 ${n} 笔交易。` : `已删除“${k}”的规则。`; render();
   }
   else if (a==="kwAdd"){
-    const kw = $("#kwText").value.trim(); if (!kw){ S.msg = "请先填写关键词"; render(); return; }
+    const kw = $("#kwText").value.trim(); if (!kw){ S.msg = "请输入关键词。"; render(); return; }
     const r = {kw, cat:$("#kwCat").value, note:$("#kwNote").value.trim(), asSpend:$("#kwSpend").checked};
-    if (!r.cat && !r.note && !r.asSpend){ S.msg = "请至少选择分类、填写备注或勾选「转账也算消费」"; render(); return; }
+    if (!r.cat && !r.note && !r.asSpend){ S.msg = "请至少设定分类、备注或“转账计为消费”中的一项。"; render(); return; }
     S.rules.kw = S.rules.kw.filter(x=>x.kw!==kw).concat([r]);
     const n = applyRuleTo(t => !S.rules.cat[keyOf(t)] && [t.cp,t.desc,t.rawType].join(" ").includes(kw), r.asSpend);
-    S.msg = `已添加关键词规则「${kw}」，匹配 ${n} 笔交易`; render();
+    S.msg = `已添加关键词规则“${kw}”，匹配 ${n} 笔交易。`; render();
   }
   else if (a==="catAdd"){
     const c = $("#newCat").value.trim();
-    if (!c){ S.msg = "请先填写分类名称"; render(); return; }
-    if (c===PENDING_CAT || allCats().includes(c)){ S.msg = `「${c}」已经存在`; render(); return; }
-    S.rules.customCats = [...(S.rules.customCats||[]), c]; settingsChanged(); S.msg = `已添加分类「${c}」，现在可以在下拉框里选它了`; render();
+    if (!c){ S.msg = "请输入分类名称。"; render(); return; }
+    if (c===PENDING_CAT || allCats().includes(c)){ S.msg = `“${c}”已存在。`; render(); return; }
+    S.rules.customCats = [...(S.rules.customCats||[]), c]; settingsChanged(); S.msg = `已添加分类“${c}”。`; render();
   }
   else if (a==="catDel"){
     const c = decodeURIComponent(el.dataset.c);
     const used = S.txns.filter(t=>t.cat===c).length + Object.values(S.rules.cat).filter(v=>v===c).length + S.rules.kw.filter(r=>r.cat===c).length;
-    if (used){ S.msg = `「${c}」还有 ${used} 处在用（交易或规则），先把它们改成别的分类再删除`; render(); return; }
-    S.rules.customCats = (S.rules.customCats||[]).filter(x=>x!==c); settingsChanged(); S.msg = `已删除分类「${c}」`; render();
+    if (used){ S.msg = `“${c}”仍被 ${used} 处交易或规则使用。请先更改这些分类，再删除。`; render(); return; }
+    S.rules.customCats = (S.rules.customCats||[]).filter(x=>x!==c); settingsChanged(); S.msg = `已删除分类“${c}”。`; render();
   }
   else if (a==="kwDel"){ S.rules.kw.splice(+el.dataset.i, 1); recompute(); settingsChanged(); render(); }
   else if (a==="pmore"){ S.pLimit = (S.pLimit||40) + 40; render(); }
   else if (a==="bulkDup"){ for (const t of pendingItems().dup) if (t._dup.level==="强"){ t.dupDecision = {with:t._dup.with, v:"dup"}; markDirty(t); } render(); }
-  else if (a==="bulkRefundIgnore"){ let n = 0; for (const t of pendingItems().refund){ if (!refundRes(t).match){ t.refundDecision = {apply:"ignore", match:null}; markDirty(t); n++; } } recompute(); S.msg = `已把 ${n} 笔找不到原交易的退款标为不计入，并已保存`; render(); }
+  else if (a==="bulkRefundIgnore"){ let n = 0; for (const t of pendingItems().refund){ if (!refundRes(t).match){ t.refundDecision = {apply:"ignore", match:null}; markDirty(t); n++; } } recompute(); S.msg = `已将 ${n} 笔无原交易的退款标为不计入，并已保存。`; render(); }
   else if (a==="bulkRefund"){ for (const t of pendingItems().refund){ const r = refundRes(t); if (r.match){ t.refundDecision = {apply:"orig", match:r.match}; markDirty(t); } } recompute(); render(); }
   else if (a==="bulkTransfer"){ const k = decodeURIComponent(el.dataset.k); for (const t of pendingItems().transfer) if (gkey(t)===k){ t.transferDecision = el.dataset.v; markDirty(t); } render(); }
   else if (t && a==="dup"){ t.dupDecision = {with:t._dup.with, v:el.dataset.v}; markDirty(t); render(); }
@@ -1387,7 +1388,7 @@ document.addEventListener("change", e => {
   if (a==="bulkCat"){
     const k = decodeURIComponent(el.dataset.k), v = el.value; if (!v) return;
     for (const t of pendingItems().cat) if (gkey(t)===k){ t.cat = v; markDirty(t); }
-    if (k !== "（无对方）"){ S.rules.cat[k] = v; settingsChanged(); }
+    if (k !== "（无交易对象）"){ S.rules.cat[k] = v; settingsChanged(); }
     recompute(); render(); return;
   }
   if (a==="pickMonth"){ S.curMonth = el.value; render(); return; }
@@ -1434,10 +1435,10 @@ async function exportBackup(){
 }
 async function importBackup(file){
   try {
-    const j = JSON.parse(await file.text()); if (!j || j.app!=="多渠道账本" || !j.docs) throw new Error("这不是多渠道账本的备份文件");
+    const j = JSON.parse(await file.text()); if (!j || j.app!=="多渠道账本" || !j.docs) throw new Error("该文件不是多渠道账本的备份");
     S.saving = true; render();
     for (const [id,data] of Object.entries(j.docs)) await col().doc(id).set(data);
-    S.files = []; S.txns = []; S.analyses = []; await loadAll(); S.msg = `已导入备份：${S.files.length} 份账单`;
+    S.files = []; S.txns = []; S.analyses = []; await loadAll(); S.msg = `备份已导入，共 ${S.files.length} 份账单。`;
   } catch(e){ S.msg = `导入备份失败：${e?.message||e}`; }
   S.saving = false; render();
 }
@@ -1461,22 +1462,22 @@ function supaStore(sb, uid){
 }
 function vLogin(){
   return `<div class="panel" style="max-width:420px;margin:40px auto">
-    <h2 style="margin-top:0">登录云端账本</h2>
-    <p class="small muted">登录后，账单保存在云端。手机、电脑用同一个邮箱登录，看到的是同一份数据。</p>
+    <h2 style="margin-top:0">登录多渠道账本</h2>
+    <p class="small muted">账单安全存储于云端。在任一设备使用同一账号登录，即可查看同一份数据。</p>
     <form id="loginForm" class="stack">
       <label class="small muted">邮箱<input type="text" id="lgEmail" autocomplete="email" style="width:100%" value="${esc(S.lgEmail||"")}"></label>
-      <label class="small muted">密码（至少 6 位）<input type="password" id="lgPw" autocomplete="current-password" style="width:100%"></label>
-      <div class="row"><button class="btn pri" type="submit" data-mode="in">登录</button><button class="btn" type="button" data-act="signup">第一次用：注册</button></div>
+      <label class="small muted">密码（不少于 6 位）<input type="password" id="lgPw" autocomplete="current-password" style="width:100%"></label>
+      <div class="row"><button class="btn pri" type="submit" data-mode="in">登录</button><button class="btn" type="button" data-act="signup">创建账号</button></div>
       ${S.lgMsg?`<p class="small" style="color:var(--warn);margin:0">${esc(S.lgMsg)}</p>`:""}
     </form></div>`;
 }
 async function doAuth(kind){
   const email = $("#lgEmail").value.trim(), password = $("#lgPw").value; S.lgEmail = email;
-  if (!email || password.length < 6){ S.lgMsg = "请填写邮箱和至少 6 位的密码"; render(); return; }
+  if (!email || password.length < 6){ S.lgMsg = "请输入邮箱与不少于 6 位的密码。"; render(); return; }
   S.lgMsg = kind==="up" ? "正在注册…" : "正在登录…"; render();
   const r = kind==="up" ? await S.sb.auth.signUp({email, password, options:{emailRedirectTo: location.origin + location.pathname}}) : await S.sb.auth.signInWithPassword({email, password});
-  if (r.error){ S.lgMsg = /Invalid login/i.test(r.error.message) ? "邮箱或密码不对" : /registered/i.test(r.error.message) ? "这个邮箱已经注册过，请直接登录" : `失败：${r.error.message}`; render(); return; }
-  if (kind==="up" && !r.data.session){ S.lgMsg = "注册成功。请到邮箱点确认链接（点完如果跳到一个打不开的页面，不用管，账号已经确认了），然后回到这里登录。"; render(); return; }
+  if (r.error){ S.lgMsg = /Invalid login/i.test(r.error.message) ? "邮箱或密码不正确。" : /registered/i.test(r.error.message) ? "该邮箱已注册，请直接登录。" : `失败：${r.error.message}`; render(); return; }
+  if (kind==="up" && !r.data.session){ S.lgMsg = "账号已创建。请前往邮箱点按确认链接，然后返回此页登录。若确认后跳转的页面无法打开，可直接忽略，账号已完成验证。"; render(); return; }
   location.reload();
 }
 document.addEventListener("submit", e => { if (e.target.id==="loginForm"){ e.preventDefault(); doAuth("in"); } });
