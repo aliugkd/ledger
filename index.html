@@ -758,13 +758,13 @@ function mergeRemote(remoteTxns, localTxns){
 }
 let lastRefresh = 0;
 async function refreshRemote(){
-  if (!S.db || !canStore() || S.saving || S.dirty.size || Date.now() - lastRefresh < 8000) return;
+  if (!S.db || !canStore() || S.saving || S.dirty.size || S.settingsPending || Date.now() - lastRefresh < 8000) return;
   lastRefresh = Date.now();
   try {
     const snap = await col().limit(1000).get(); let changed = false;
     for (const d of snap.docs){
       if (d.id.startsWith("tx_")){ const v = d.data(); const part = S.txns.filter(t=>t.fileId===v.fileId && t._k===v.k); if (mergeRemote(v.txns||[], part)) changed = true; }
-      else if (d.id==="settings"){ const v = d.data(); const next = JSON.stringify([v.cat||{}, v.meta||{}, v.kw||[], v.autoDup!==false, v.customCats||[]]); if (next !== JSON.stringify([S.rules.cat, S.rules.meta, S.rules.kw, autoDupOn(), S.rules.customCats||[]])){ S.rules.cat = v.cat||{}; S.rules.meta = v.meta||{}; S.rules.kw = v.kw||[]; S.rules.customCats = v.customCats||[]; S.rules.autoDup = v.autoDup!==false; changed = true; } }
+      else if (d.id==="settings" && !S.settingsPending){ const v = d.data(); const next = JSON.stringify([v.cat||{}, v.meta||{}, v.kw||[], v.autoDup!==false, v.customCats||[]]); if (next !== JSON.stringify([S.rules.cat, S.rules.meta, S.rules.kw, autoDupOn(), S.rules.customCats||[]])){ S.rules.cat = v.cat||{}; S.rules.meta = v.meta||{}; S.rules.kw = v.kw||[]; S.rules.customCats = v.customCats||[]; S.rules.autoDup = v.autoDup!==false; changed = true; } }
     }
     if (changed){ recompute(); render(); }
   } catch(e){}
@@ -788,7 +788,10 @@ async function flushDirty(){
   S.saving = false; if (adopted){ recompute(); render(); } else renderSync();
 }
 let settingsTimer=null;
-function settingsChanged(){ clearTimeout(settingsTimer); settingsTimer = setTimeout(()=>saveSettings().catch(e=>{S.msg=saveErr(e);render();}), 800); }
+function settingsChanged(){
+  S.settingsPending = true; clearTimeout(settingsTimer);
+  settingsTimer = setTimeout(async ()=>{ try { await saveSettings(); } catch(e){ S.msg = saveErr(e); render(); } S.settingsPending = false; S.lastSaved = new Date(); renderSync(); }, 500);
+}
 async function deleteFile(id){
   const f = S.files.find(x=>x.id===id); if (!f) return;
   if (!f.staged && !f.sample && S.db){
@@ -1155,8 +1158,8 @@ function vRules(){
     <div class="row" style="margin-top:10px"><input type="text" id="newCat" placeholder="分类名称，例如：宠物、美妆、学习" maxlength="12" style="width:240px"><button class="btn pri sm" data-act="catAdd">添加分类</button></div>
   </div>
   <div class="panel"><h3 style="margin-top:0">关键词规则</h3><p class="small muted" style="margin:0 0 12px">交易对象或商品说明中包含该关键词时，即套用此规则。例如“天梯”可同时匹配“广州天梯网络科技有限公司”与“天梯互娱”。</p>
-    <div class="row"><input type="text" id="kwText" placeholder="关键词，例如：天梯" style="width:160px"><select id="kwCat" aria-label="分类">${catOpts("")}</select><input type="text" id="kwNote" placeholder="备注（选填）" class="grow" style="min-width:140px"><label class="small"><input type="checkbox" id="kwSpend"> 转账计为消费</label><button class="btn pri sm" data-act="kwAdd">添加规则</button></div>
-    ${S.rules.kw.length ? `<div class="tw" style="margin-top:10px"><table><thead><tr><th>关键词</th><th>分类</th><th>备注</th><th>转账算消费</th><th class="n">匹配</th><th></th></tr></thead><tbody>${S.rules.kw.map((r,i)=>`<tr><td><strong>${esc(r.kw)}</strong></td><td>${esc(r.cat||"—")}</td><td class="small">${esc(r.note||"—")}</td><td>${r.asSpend?"是":"—"}</td><td class="n">${kwCount(r)} 笔</td><td><button class="btn sm ghost" data-act="kwDel" data-i="${i}">删除</button></td></tr>`).join("")}</tbody></table></div>` : ""}
+    ${(()=>{ const d = S.kwDraft || {}; return `<div class="row"><input type="text" id="kwText" placeholder="关键词，例如：天梯" style="width:160px" value="${esc(d.kw||"")}" ${d.kw?"readonly":""}><select id="kwCat" aria-label="分类">${catOpts(d.cat||"")}</select><input type="text" id="kwNote" placeholder="备注（选填）" class="grow" style="min-width:140px" value="${esc(d.note||"")}"><label class="small"><input type="checkbox" id="kwSpend" ${d.asSpend?"checked":""}> 转账计为消费</label><button class="btn pri sm" data-act="kwAdd">${d.kw?"保存修改":"添加规则"}</button>${d.kw?`<button class="btn sm ghost" data-act="kwCancel">取消</button>`:""}</div>`; })()}
+    ${S.rules.kw.length ? `<div class="tw" style="margin-top:10px"><table><thead><tr><th>关键词</th><th>分类</th><th>备注</th><th>转账算消费</th><th class="n">匹配</th><th></th></tr></thead><tbody>${S.rules.kw.map((r,i)=>`<tr><td><strong>${esc(r.kw)}</strong></td><td>${esc(r.cat||"—")}</td><td class="small">${esc(r.note||"—")}</td><td>${r.asSpend?"是":"—"}</td><td class="n">${kwCount(r)} 笔</td><td><button class="btn sm ghost" data-act="kwEdit" data-i="${i}">编辑</button><button class="btn sm ghost" data-act="kwDel" data-i="${i}">删除</button></td></tr>`).join("")}</tbody></table></div>` : ""}
   </div>
   <h3>交易对象规则</h3>
   <div class="row"><input type="text" id="rq" placeholder="搜索交易对象" value="${esc(S.rq||"")}" class="grow" style="min-width:200px"><span class="small muted">${gs.length} 个对象</span></div>
@@ -1371,7 +1374,7 @@ document.addEventListener("click", e => {
     if (!r.cat && !r.note && !r.asSpend){ S.msg = "请至少设定分类、备注或“转账计为消费”中的一项。"; render(); return; }
     S.rules.kw = S.rules.kw.filter(x=>x.kw!==kw).concat([r]);
     const n = applyRuleTo(t => !S.rules.cat[keyOf(t)] && [t.cp,t.desc,t.rawType].join(" ").includes(kw), r.asSpend);
-    S.msg = `已添加关键词规则“${kw}”，匹配 ${n} 笔交易。`; render();
+    S.msg = S.kwDraft ? `已更新关键词规则“${kw}”，匹配 ${n} 笔交易。` : `已添加关键词规则“${kw}”，匹配 ${n} 笔交易。`; S.kwDraft = null; render();
   }
   else if (a==="catAdd"){
     const c = $("#newCat").value.trim();
@@ -1385,6 +1388,8 @@ document.addEventListener("click", e => {
     if (used){ S.msg = `“${c}”仍被 ${used} 处交易或规则使用。请先更改这些分类，再删除。`; render(); return; }
     S.rules.customCats = (S.rules.customCats||[]).filter(x=>x!==c); settingsChanged(); S.msg = `已删除分类“${c}”。`; render();
   }
+  else if (a==="kwEdit"){ S.kwDraft = {...S.rules.kw[+el.dataset.i]}; render(); const n = $("#kwNote"); if (n) n.focus(); }
+  else if (a==="kwCancel"){ S.kwDraft = null; render(); }
   else if (a==="kwDel"){ S.rules.kw.splice(+el.dataset.i, 1); recompute(); settingsChanged(); render(); }
   else if (a==="pmore"){ S.pLimit = (S.pLimit||40) + 40; render(); }
   else if (a==="bulkDup"){ for (const t of pendingItems().dup) if (t._dup.level==="强"){ t.dupDecision = {with:t._dup.with, v:"dup"}; markDirty(t); } render(); }
