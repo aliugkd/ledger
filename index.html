@@ -759,6 +759,9 @@ function mergeRemote(remoteTxns, localTxns){
 let lastRefresh = 0;
 async function refreshRemote(){
   if (!S.db || !canStore() || S.saving || S.dirty.size || S.settingsPending || Date.now() - lastRefresh < 8000) return;
+  // 正在输入或编辑时不刷新，避免重绘冲掉未保存的内容
+  const ae = document.activeElement;
+  if (S.noteEdit || S.exEdit || S.editK || S.kwDraft || (ae && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName))) return;
   lastRefresh = Date.now();
   try {
     const snap = await col().limit(1000).get(); let changed = false;
