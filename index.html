@@ -114,6 +114,14 @@ details>summary{cursor:pointer;color:var(--link);font-size:14px;margin-top:10px}
 .notes{display:flex;flex-wrap:wrap;gap:4px 6px;align-items:center;margin-top:3px}
 .notebtn{padding:0 6px;font-size:12px;opacity:.55}
 tr:hover .notebtn,.pitem:hover .notebtn,.notebtn:focus-visible{opacity:1}
+.sheet-bg{position:fixed;inset:0;z-index:30;background:rgba(0,0,0,.32);display:grid;place-items:center;padding:16px;backdrop-filter:blur(2px)}
+.sheet{background:var(--surface);color:var(--ink);border-radius:var(--r);width:100%;max-width:640px;max-height:86vh;overflow:auto;padding:22px 24px;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+.splist{margin-top:10px;border:1px solid var(--hair);border-radius:var(--r-sm);max-height:340px;overflow:auto}
+.sprow{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;padding:10px 12px;border-bottom:1px solid var(--hair);cursor:pointer}
+.sprow:last-child{border-bottom:0}
+.sprow:hover{background:var(--sunk)}
+.sp-main{display:grid;flex:1;min-width:140px}
+.sp-amt{font-weight:600;font-variant-numeric:tabular-nums}
 .basis{font-size:13px;color:var(--muted);margin:0;padding-left:18px}
 .chart svg{width:100%;height:auto;display:block}
 .chart text{fill:var(--muted);font-family:var(--f-num);font-size:11px}
@@ -571,22 +579,33 @@ function recompute(){
   S.byId = new Map(S.txns.map(t=>[t.id,t]));
   for (const t of S.txns){ t._type = classify(t); t._auto = (t._type==="消费"||t._type==="转账") ? autoCat(t) : null; }
   matchRefunds(); findDups();
+  S.offsetsBy = new Map(); for (const t of S.txns){ if (t.offsetOf){ const k = t.offsetOf.id; if (!S.offsetsBy.has(k)) S.offsetsBy.set(k, []); S.offsetsBy.get(k).push(t); } }
 }
 
 /* ============ 账目计算（两条独立路径，用于回对） ============ */
+// 计入消费的交易；报销与 AA 回款以负数冲减原消费所在月份与分类
+const isSpend = t => effState(t)==="ok" && !isDropped(t) && (t._type==="消费" || (t._type==="转账" && tDec(t)==="消费" && !returned(t)));
+const offsetTarget = t => { const o = t.offsetOf && S.byId.get(t.offsetOf.id); return o && isSpend(o) ? o : null; };
+const offsetKind = t => t.offsetOf?.kind === "reimb" ? "报销款冲减" : "AA 回款";
 function ledger(){
   const lines = [], income = [];
   for (const t of S.txns){
     if (effState(t) !== "ok") continue;
-    if (t._type === "消费" && !isDropped(t)) lines.push({t, month:t.month, cat:effCat(t), amt:t.amount, kind:"消费"});
-    else if (t._type === "转账" && tDec(t) === "消费" && !returned(t) && !isDropped(t)) lines.push({t, month:t.month, cat:effCat(t), amt:t.amount, kind:"转账·消费"});
+    if (isSpend(t)){
+      lines.push({t, month:t.month, cat:effCat(t), amt:t.amount, kind: t._type==="转账" ? "转账·消费" : "消费"});
+      if (t.reimbursed) lines.push({t, month:t.month, cat:effCat(t), amt:-t.amount, kind:"已报销"});
+    }
     else if (t._type === "退款"){
       const r = refundRes(t), o = r.match && S.byId.get(r.match);
       if (r.apply === "orig" && o) lines.push({t, month:o.month, cat:effCat(o), amt:-t.amount, kind:"退款冲减", o});
       else if (r.apply === "refundMonth" && o) lines.push({t, month:t.month, cat:effCat(o), amt:-t.amount, kind:"退款冲减", o});
       else if (r.apply === "income") income.push({t, month:t.month, amt:t.amount});
     }
-    else if (t._type === "收入") income.push({t, month:t.month, amt:t.amount});
+    else if (t._type === "收入"){
+      const o = offsetTarget(t);
+      if (o) lines.push({t, month:o.month, cat:effCat(o), amt:-t.amount, kind:offsetKind(t), o});
+      else income.push({t, month:t.month, amt:t.amount});
+    }
   }
   return {lines, income};
 }
@@ -595,7 +614,12 @@ function monthTotalsIndependent(){
   const add = (k,v)=>{ m[k]=(m[k]||0)+v; };
   for (const t of S.txns){
     if (effState(t)!=="ok" || isDropped(t)) continue;
-    if (t._type==="消费" || (t._type==="转账" && tDec(t)==="消费" && !returned(t))) add(t.month, t.amount);
+    if (t._type==="消费" || (t._type==="转账" && tDec(t)==="消费" && !returned(t))){ add(t.month, t.amount); if (t.reimbursed) add(t.month, -t.amount); }
+  }
+  for (const t of S.txns){
+    if (effState(t)!=="ok" || t._type!=="收入" || !t.offsetOf) continue;
+    const o = S.byId.get(t.offsetOf.id);
+    if (o && effState(o)==="ok" && !isDropped(o) && (o._type==="消费" || (o._type==="转账" && tDec(o)==="消费" && !returned(o)))) add(o.month, -t.amount);
   }
   for (const t of S.txns){
     if (effState(t)!=="ok" || t._type!=="退款") continue;
@@ -705,7 +729,7 @@ async function addFiles(fileList){
 function clearSamples(){ const ids = new Set(S.files.filter(f=>f.sample).map(f=>f.id)); S.files = S.files.filter(f=>!f.sample); S.txns = S.txns.filter(t=>!ids.has(t.fileId)); recompute(); }
 
 /* ============ 保存 ============ */
-const DOC_KEYS = ["id","fileId","fileName","channel","line","date","time","month","amount","dir","status","state","cp","desc","rawType","orderId","mOrderId","method","remark","raw","cat","transferDecision","refundDecision","dupDecision","stateOverride","note","excluded"];
+const DOC_KEYS = ["id","fileId","fileName","channel","line","date","time","month","amount","dir","status","state","cp","desc","rawType","orderId","mOrderId","method","remark","raw","cat","transferDecision","refundDecision","dupDecision","stateOverride","note","excluded","offsetOf","reimbursed"];
 const slim = t => { const o={}; for (const k of DOC_KEYS) if (k!=="fileName" && t[k]!==undefined && t[k]!=="" && t[k]!=="/" && t[k]!==null) o[k]=t[k]; if (o.raw) o.raw = o.raw.slice(0,160); return o; };
 const CHUNK = 250, CHUNK_BYTES = 180000;
 function chunkTxns(tx){
@@ -747,7 +771,7 @@ function markDirty(t){
   S.dirty.add(`${t.fileId}|${t._k}`);
   clearTimeout(dirtyTimer); dirtyTimer = setTimeout(flushDirty, 1200); renderSync();
 }
-const DEC_KEYS = ["cat","transferDecision","refundDecision","dupDecision","stateOverride","note","excluded"];
+const DEC_KEYS = ["cat","transferDecision","refundDecision","dupDecision","stateOverride","note","excluded","offsetOf","reimbursed"];
 function mergeRemote(remoteTxns, localTxns){
   const rm = new Map(remoteTxns.map(r=>[r.id, r])); let changed = false;
   for (const t of localTxns){
@@ -765,7 +789,7 @@ async function refreshRemote(){
   if (!S.db || !canStore() || S.saving || S.dirty.size || S.settingsPending || Date.now() - lastRefresh < 8000) return;
   // 正在输入或编辑时不刷新，避免重绘冲掉未保存的内容
   const ae = document.activeElement;
-  if (S.noteEdit || S.exEdit || S.editK || S.kwDraft || (ae && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName))) return;
+  if (S.noteEdit || S.exEdit || S.editK || S.kwDraft || S.splitEdit || (ae && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName))) return;
   lastRefresh = Date.now();
   try {
     const snap = await col().limit(1000).get(); let changed = false;
@@ -912,7 +936,8 @@ function render(){
   const sample = S.files.some(f=>f.sample);
   $("#main").innerHTML = (sample ? `<div class="banner"><span><b>示例数据。</b>以下均为虚构账单，用于演示识别、核对与确认流程，不会被保存。导入你自己的账单后，示例将自动移除。</span><button class="btn sm" data-act="clearSamples">移除示例</button></div>` : "")
     + (S.saveError ? `<div class="banner" style="background:var(--bad-soft)"><span style="color:var(--bad)"><b style="color:var(--bad)">保存失败。</b>${esc(S.saveError)}</span><button class="btn sm" data-act="dismissErr">知道了</button></div>` : "")
-    + (S.msg ? `<p class="small" style="margin-top:12px;color:var(--warn)">${esc(S.msg)}</p>` : "") + view(L,p);
+    + (S.msg ? `<p class="small" style="margin-top:12px;color:var(--warn)">${esc(S.msg)}</p>` : "") + view(L,p)
+    + (S.splitEdit && S.byId.get(S.splitEdit) ? splitPanel(S.byId.get(S.splitEdit)) : "");
 }
 const months = () => [...new Set(S.txns.map(t=>t.month))].sort().reverse();
 const src = t => `<span title="${esc(t.raw)}">${esc(t.fileName)} · 第${t.line}行</span>`;
@@ -923,10 +948,38 @@ function keyOf(t){
   k = k.replace(/\s*[*#]\s*[A-Za-z0-9-]{4,}.*$/,"").replace(/\s*\(?\d{4,}.*$/,"").trim();
   return k || clean(t.cp) || clean(t.desc);
 }
+function offsetChips(t){
+  const out = [];
+  if (t.reimbursed) out.push(`<span class="chip inc">已报销</span>`);
+  const got = (S.offsetsBy?.get(t.id) || []).filter(x => offsetTarget(x) === t);
+  if (got.length){ const sum = got.reduce((a,x)=>a+x.amount,0); out.push(`<span class="chip inc">已收回 ${yuan(sum)} · 本人承担 ${yuan(Math.max(0, t.amount - sum - (t.reimbursed ? t.amount : 0)))}</span>`); }
+  if (t.offsetOf){ const o = S.byId.get(t.offsetOf.id); out.push(o && offsetTarget(t) ? `<span class="chip inc">${t.offsetOf.kind==="reimb"?"报销款":"AA 回款"} → ${esc(clean(o.cp)||clean(o.desc))} ${o.date.slice(5)}</span>` : `<span class="chip warn">关联的消费已不计入，此笔按收入计</span>`); }
+  return out.join("");
+}
+function splitPanel(t){
+  const days = S.splitDays ?? 7;
+  const near = x => Math.abs(Date.parse(x.date) - Date.parse(t.date)) <= days * 864e5;
+  const cands = S.txns.filter(x => x._type==="收入" && effState(x)==="ok" && ((x.offsetOf && x.offsetOf.id===t.id) || (!x.offsetOf && near(x))))
+    .sort((a,b) => (b.offsetOf?.id===t.id) - (a.offsetOf?.id===t.id) || Math.abs(ts(a)-ts(t)) - Math.abs(ts(b)-ts(t))).slice(0, 60);
+  const isGroup = x => /群收款|AA/i.test([x.rawType, x.desc, x.cp].join(" "));
+  return `<div class="sheet-bg" data-act="splitCancel"><div class="sheet" role="dialog" aria-label="AA 与报销">
+    <div class="row" style="justify-content:space-between"><strong>AA 与报销 · ${esc(clean(t.cp)||clean(t.desc))} ${yuan(t.amount)}</strong><span class="small muted">${t.date}</span></div>
+    <label class="row small" style="margin-top:10px"><input type="checkbox" id="spReimb" ${t.reimbursed?"checked":""}> 整笔已报销（报销款不在已导入的账单中）</label>
+    <div class="row small" style="margin-top:12px">勾选这笔消费前后 <input type="number" id="spDays" data-act="spDays" min="0" max="120" value="${days}" style="width:70px"> 天内，属于 AA 回款或报销款的收入：</div>
+    ${cands.length ? `<div class="splist">${cands.map(x=>`<label class="sprow">
+      <input type="checkbox" class="spPick" data-id="${esc(x.id)}" ${x.offsetOf?.id===t.id?"checked":""}>
+      <span class="sp-main"><span>${esc(clean(x.cp)||"—")}</span><span class="small muted">${x.date.slice(5)} ${x.time.slice(0,5)} · ${esc(x.rawType)}${isGroup(x)?" · 疑似 AA":""}</span></span>
+      <span class="sp-amt">${yuan(x.amount)}</span>
+      <select class="spKind" data-id="${esc(x.id)}" aria-label="类型"><option value="aa" ${x.offsetOf?.kind!=="reimb"?"selected":""}>AA 回款</option><option value="reimb" ${x.offsetOf?.kind==="reimb"?"selected":""}>报销款</option></select></label>`).join("")}</div>`
+      : `<p class="small muted">该时间范围内没有可关联的收入。可调大天数后再查找。</p>`}
+    <div class="row" style="margin-top:12px"><button class="btn sm pri" data-act="splitSave" data-id="${esc(t.id)}">保存</button><button class="btn sm ghost" data-act="splitCancel">取消</button>
+    <span class="small muted">关联后，这些收入不再计为收入，而是冲减这笔消费；本人承担部分 = 消费金额 − 已收回金额。</span></div>
+  </div></div>`;
+}
 function noteBlock(t){
   if (S.noteEdit===t.id) return `<div class="row" style="margin-top:6px;gap:6px"><input type="text" id="noteIn" data-id="${esc(t.id)}" value="${esc(t.note||"")}" placeholder="为这笔交易添加备注" maxlength="60" style="min-width:180px;flex:1"><button class="btn sm pri" data-act="noteSave" data-id="${esc(t.id)}">保存</button><button class="btn sm ghost" data-act="noteCancel">取消</button></div>`;
   const own = t.note, rule = !own && ruleFor(t)?.note;
-  return `<div class="notes">${own ? `<span class="chip acc">备注：${esc(own)}</span>` : rule ? `<span class="chip">规则备注：${esc(rule)}</span>` : ""}<button class="btn sm ghost notebtn" data-act="noteEdit" data-id="${esc(t.id)}">${own ? "编辑备注" : "添加备注"}</button>${t.excluded ? `<span class="chip bad">已排除 · ${esc(t.excluded.reason)}</span><button class="btn sm ghost" data-act="exRestore" data-id="${esc(t.id)}">恢复</button>` : S.exEdit===t.id ? `<span class="confirm small">排除原因 <select id="exReason"><option>重复记录</option><option>测试或误记</option><option>其他</option></select><button class="btn sm" data-act="exSave" data-id="${esc(t.id)}">确认排除</button><button class="btn sm ghost" data-act="exCancel">取消</button></span>` : `<button class="btn sm ghost notebtn" data-act="exEdit" data-id="${esc(t.id)}">排除</button>`}</div>`;
+  return `<div class="notes">${own ? `<span class="chip acc">备注：${esc(own)}</span>` : rule ? `<span class="chip">规则备注：${esc(rule)}</span>` : ""}${offsetChips(t)}<button class="btn sm ghost notebtn" data-act="noteEdit" data-id="${esc(t.id)}">${own ? "编辑备注" : "添加备注"}</button>${isSpend(t) ? `<button class="btn sm ghost notebtn" data-act="splitEdit" data-id="${esc(t.id)}">AA / 报销</button>` : ""}${t.offsetOf ? `<button class="btn sm ghost notebtn" data-act="unlinkOffset" data-id="${esc(t.id)}">取消关联</button>` : ""}${t.excluded ? `<span class="chip bad">已排除 · ${esc(t.excluded.reason)}</span><button class="btn sm ghost" data-act="exRestore" data-id="${esc(t.id)}">恢复</button>` : S.exEdit===t.id ? `<span class="confirm small">排除原因 <select id="exReason"><option>重复记录</option><option>测试或误记</option><option>其他</option></select><button class="btn sm" data-act="exSave" data-id="${esc(t.id)}">确认排除</button><button class="btn sm ghost" data-act="exCancel">取消</button></span>` : `<button class="btn sm ghost notebtn" data-act="exEdit" data-id="${esc(t.id)}">排除</button>`}</div>`;
 }
 const txDesc = t => { const a = clean(t.cp) || clean(t.desc) || "—", b = clean(t.cp) && clean(t.desc) !== a ? clean(t.desc) : ""; return `${esc(a)}${b ? `<div class="muted small">${esc(b)}</div>` : ""}${noteBlock(t)}`; };
 const catSelect = (t, id, none) => `<select id="${id}" data-act="setCat" data-id="${esc(t.id)}" aria-label="分类">${none ? `<option value="" selected>${none}</option>` : ""}${[...allCats(),PENDING_CAT].map(c=>`<option ${!none && effCat(t)===c?"selected":""}>${c}</option>`).join("")}</select>`;
@@ -1213,8 +1266,9 @@ function vTransfer(){
 function vIncome(L){
   const by = {}; for (const i of L.income) by[i.month]=(by[i.month]||0)+i.amt;
   const list = L.income.map(i=>i.t).sort((a,b)=>ts(b)-ts(a));
-  return `<h2>收入</h2><p class="lead">收入仅作记录与月度汇总，不参与消费分析。计为收入的退款同样列示于此。</p>
-  ${Object.keys(by).length?`<div class="tw"><table><thead><tr><th>月份</th><th class="n">收入合计</th><th class="n">笔数</th></tr></thead><tbody>${Object.keys(by).sort().reverse().map(m=>`<tr><td class="t">${m}</td><td class="n" style="color:var(--inc)">${yuan(by[m])}</td><td class="n">${L.income.filter(i=>i.month===m).length}</td></tr>`).join("")}</tbody></table></div>${detailTable(list,false)}`:`<p class="muted">暂无收入记录。</p>`}`;
+  return `<h2>收入</h2><p class="lead">收入仅作记录与月度汇总，不参与消费分析。计为收入的退款同样列示于此；已关联为 AA 回款或报销款的收入，用于冲减对应消费，单独列示。</p>
+  ${Object.keys(by).length?`<div class="tw"><table><thead><tr><th>月份</th><th class="n">收入合计</th><th class="n">笔数</th></tr></thead><tbody>${Object.keys(by).sort().reverse().map(m=>`<tr><td class="t">${m}</td><td class="n" style="color:var(--inc)">${yuan(by[m])}</td><td class="n">${L.income.filter(i=>i.month===m).length}</td></tr>`).join("")}</tbody></table></div>${detailTable(list,false)}`:`<p class="muted">暂无收入记录。</p>`}
+  ${(()=>{ const off = L.lines.filter(l=>l.kind==="AA 回款"||l.kind==="报销款冲减").map(l=>l.t).sort((a,b)=>ts(b)-ts(a)); return off.length ? `<h3>已冲减消费的回款与报销款 · ${off.length} 笔 · ${yuan(off.reduce((a,t)=>a+t.amount,0))}</h3><p class="small muted" style="margin:0">以下收入已关联到对应消费，用于冲减该消费，不计入收入合计。</p>${detailTable(off,false)}` : ""; })()}`;
 }
 
 /* ============ 支出分析 ============ */
@@ -1336,7 +1390,9 @@ async function exportXlsx(){
 /* ============ 事件 ============ */
 document.addEventListener("click", e => {
   const tab = e.target.closest("[data-tab]"); if (tab){ S.tab = tab.dataset.tab; store.set("ledger.tab", S.tab); render(); window.scrollTo(0,0); return; }
-  const el = e.target.closest("[data-act]"); if (!el || el.tagName==="SELECT" || el.tagName==="INPUT") return;
+  if (e.target.classList?.contains("sheet-bg")){ S.splitEdit = null; render(); return; }
+  if (e.target.closest(".sheet") && !e.target.closest("[data-act]")) return;
+  const el = e.target.closest("[data-act]"); if (!el || el.tagName==="SELECT" || el.tagName==="INPUT" || el.classList.contains("sheet-bg")) return;
   const a = el.dataset.act, id = el.dataset.id, t = id && S.byId.get(id);
   if (a==="export") exportXlsx();
   else if (a==="backup") exportBackup();
@@ -1363,6 +1419,25 @@ document.addEventListener("click", e => {
   else if (a==="exCancel"){ S.exEdit = null; render(); }
   else if (t && a==="exSave"){ t.excluded = {reason: $("#exReason")?.value || "重复记录", at: new Date().toISOString().slice(0,10)}; S.exEdit = null; markDirty(t); recompute(); S.msg = `已排除这笔 ${yuan(t.amount)} 的交易，不再计入任何合计。可在“无效交易”中恢复。`; render(); }
   else if (t && a==="exRestore"){ delete t.excluded; markDirty(t); recompute(); S.msg = "已恢复这笔交易。"; render(); }
+  else if (a==="splitEdit"){ S.splitEdit = id; S.noteEdit = null; render(); }
+  else if (a==="splitCancel"){ S.splitEdit = null; render(); }
+  else if (t && a==="splitSave"){
+    const picks = [...document.querySelectorAll(".spPick")];
+    let got = 0;
+    for (const cb of picks){
+      const x = S.byId.get(cb.dataset.id); if (!x) continue;
+      const kind = document.querySelector(`.spKind[data-id="${CSS.escape(x.id)}"]`)?.value || "aa";
+      if (cb.checked){ const next = {id:t.id, kind}; if (JSON.stringify(x.offsetOf) !== JSON.stringify(next)){ x.offsetOf = next; markDirty(x); } got += x.amount; }
+      else if (x.offsetOf?.id === t.id){ delete x.offsetOf; markDirty(x); }
+    }
+    const reimb = $("#spReimb")?.checked;
+    if (reimb && !t.reimbursed){ t.reimbursed = true; markDirty(t); } else if (!reimb && t.reimbursed){ delete t.reimbursed; markDirty(t); }
+    S.splitEdit = null; recompute();
+    const own = Math.max(0, t.amount - got - (reimb ? t.amount : 0));
+    S.msg = `已保存。这笔 ${yuan(t.amount)} 的消费，已收回 ${yuan(got)}${reimb?"，并标记为已报销":""}，本人承担 ${yuan(own)}。` + (got + (reimb?t.amount:0) > t.amount ? " 注意：收回金额超过了消费金额，请检查是否多选。" : "");
+    render();
+  }
+  else if (t && a==="unlinkOffset"){ delete t.offsetOf; markDirty(t); recompute(); S.msg = "已取消关联，这笔收入重新计为收入。"; render(); }
   else if (a==="noteCancel"){ S.noteEdit = null; render(); }
   else if (t && a==="noteSave"){ saveNote(t); }
   else if (a==="ruleEdit"){ S.editK = decodeURIComponent(el.dataset.k); render(); }
@@ -1431,6 +1506,7 @@ document.addEventListener("change", e => {
     if (k !== "（无交易对象）"){ S.rules.cat[k] = v; settingsChanged(); }
     recompute(); render(); return;
   }
+  if (a==="spDays"){ S.splitDays = Math.max(0, Math.min(120, +el.value || 0)); render(); return; }
   if (a==="pickMonth"){ S.curMonth = el.value; render(); return; }
   if (a==="filter"){ S.f[el.dataset.k] = el.value; S.f.limit = 300; render(); return; }
   if (a==="anRange"){ S[el.dataset.k] = el.value; render(); return; }
