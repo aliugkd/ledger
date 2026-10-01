@@ -941,6 +941,7 @@ function renderSync(){
   if (S.mode==="connecting") s = "正在连接…";
   else if (S.mode==="local") s = "未连接存储服务：数据仅保留在当前页面，关闭后将丢失";
   else if (S.mode==="login") s = "云端版 · 请登录";
+  else if (S.mode==="loadfail") s = "未能读取账本 · 数据未丢失，请刷新重试";
   else if (S.mode==="cloud" && !S.saving && !S.dirty.size) s = `云端版 · ${S.email} · ${saved} 份账单 · 所有设备实时同步`;
   else if (S.mode==="device" && !S.saving && !S.dirty.size) s = (location.protocol==="file:" ? "离线版 · 数据存储于本机浏览器" : "网页版 · 数据存储于当前浏览器，跨设备请使用备份迁移") + ` · ${saved} 份账单`;
   else if (S.saving) s = "正在同步…";
@@ -951,6 +952,7 @@ function renderSync(){
 function render(){
   const lo = $("#logoutBtn"); if (lo) lo.hidden = S.mode!=="cloud";
   if (S.mode==="login"){ renderSync(); $("#tabs").innerHTML = ""; $("#main").innerHTML = vLogin(); return; }
+  if (S.mode==="loadfail"){ renderSync(); $("#tabs").innerHTML = ""; $("#main").innerHTML = `<div class="panel" style="max-width:560px;margin:48px auto"><h2 style="margin-top:0">暂时无法读取账本</h2><p class="muted">${esc(S.saveError||"")}</p><button class="btn pri" data-act="reloadPage">重新加载</button></div>`; return; }
   const p = pendingItems(); renderTabs(p); renderSync();
   const L = ledger(); const view = {rules:vRules, import:vImport, overview:vOverview, month:vMonth, pivot:vPivot, detail:vDetail, pending:vPending, failed:vFailed, transfer:vTransfer, income:vIncome, analysis:vAnalysis}[S.tab] || vImport;
   const sample = S.files.some(f=>f.sample);
@@ -1431,6 +1433,7 @@ document.addEventListener("click", e => {
   const a = el.dataset.act, id = el.dataset.id, t = id && S.byId.get(id);
   if (a==="export") exportXlsx();
   else if (a==="backup") exportBackup();
+  else if (a==="reloadPage"){ location.reload(); }
   else if (a==="dismissErr"){ S.saveError = null; render(); }
   else if (a==="mPrev" || a==="mNext"){ const ms = months(); const i = ms.indexOf(S.curMonth); const j = a==="mPrev" ? i+1 : i-1; if (ms[j]) { S.curMonth = ms[j]; render(); } }
   else if (a==="samples"){ loadSamples(); render(); }
@@ -1673,7 +1676,7 @@ async function start(){
       if (!session){ S.mode = "login"; render(); return; }
       S.db = supaStore(S.sb, session.user.id); S.uid = session.user.id; S.email = session.user.email; S.mode = "cloud";
       await loadAll();
-    } catch(e){ S.mode = "local"; S.db = null; S.msg = `连接云端失败：${e?.message||e}`; }
+    } catch(e){ S.mode = "loadfail"; S.db = null; S.saveError = `无法连接云端（${e?.message||e}）。你的数据仍保存在云端，并未丢失。请检查网络后刷新页面。`; render(); return; }
     if (!S.files.length) loadSamples(); render(); return;
   }
   if (!c || !c.use){
@@ -1683,11 +1686,23 @@ async function start(){
   }
   const [db, user, sample, downloads] = await Promise.all(["db","user","sample","downloads"].map(n=>c.use(n).catch(()=>null)));
   S.sampleCap = sample; S.downloads = downloads;
+  // 读取失败时不显示示例数据，避免误以为记录丢失；自动重试一次
+  let lastErr = null;
   if (db && user){
-    try { const uid = await user.id(); if (uid){ S.db = db; S.uid = uid; S.mode = "online"; await loadAll(); } else S.mode = "local"; }
-    catch(e){ S.mode = "local"; S.msg = `读取已保存的数据失败：${e?.message||e}`; }
-  } else S.mode = "local";
-  if (!S.files.length) loadSamples();
+    for (let attempt = 0; attempt < 2 && S.mode !== "online"; attempt++){
+      try {
+        const uid = await user.id();
+        if (!uid){ lastErr = "未能识别当前登录账号"; break; }
+        S.db = db; S.uid = uid; S.files = []; S.txns = []; S.analyses = [];
+        await loadAll(); S.mode = "online";
+      } catch(e){ lastErr = e?.message || e?.code || String(e); S.db = null; await new Promise(r => setTimeout(r, 1500)); }
+    }
+  } else lastErr = "页面未获得存储权限";
+  if (S.mode !== "online"){
+    S.mode = "loadfail";
+    S.saveError = `暂时无法读取你的账本（${lastErr}）。你的数据仍保存在云端，并未丢失。请刷新页面重试；若问题持续，请截图反馈。`;
+    render(); return;
+  }
   render();
 }
 start();
