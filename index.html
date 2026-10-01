@@ -733,7 +733,11 @@ async function saveStaged(){
   S.saving = false; render();
 }
 function saveErr(e){ return e?.code==="quota_exceeded" ? "存储空间已满。请删除部分旧账单后再保存。" : `保存失败：${e?.message||e}`; }
-async function saveSettings(){ if (S.db && S.uid) await col().doc("settings").set({ownNames:S.rules.ownNames, cat:S.rules.cat, meta:S.rules.meta, kw:S.rules.kw, customCats:S.rules.customCats, autoDup:autoDupOn()}); }
+// 规则以「列表」形式保存：交易对象名里常有 . / 等字符，不能直接当作字段名
+async function saveSettings(){ if (S.db && S.uid) await col().doc("settings").set({v:2, ownNames:S.rules.ownNames, catList:Object.entries(S.rules.cat), metaList:Object.entries(S.rules.meta), kw:S.rules.kw, customCats:S.rules.customCats, autoDup:autoDupOn()}); }
+function readSettings(v){
+  return { ownNames: v.ownNames||[], cat: v.catList ? Object.fromEntries(v.catList) : (v.cat||{}), meta: v.metaList ? Object.fromEntries(v.metaList) : (v.meta||{}), kw: v.kw||[], customCats: v.customCats||[], autoDup: v.autoDup !== false };
+}
 let dirtyTimer = null;
 function markDirty(t){
   const f = S.files.find(x=>x.id===t.fileId);
@@ -767,7 +771,7 @@ async function refreshRemote(){
     const snap = await col().limit(1000).get(); let changed = false;
     for (const d of snap.docs){
       if (d.id.startsWith("tx_")){ const v = d.data(); const part = S.txns.filter(t=>t.fileId===v.fileId && t._k===v.k); if (mergeRemote(v.txns||[], part)) changed = true; }
-      else if (d.id==="settings" && !S.settingsPending){ const v = d.data(); const next = JSON.stringify([v.cat||{}, v.meta||{}, v.kw||[], v.autoDup!==false, v.customCats||[]]); if (next !== JSON.stringify([S.rules.cat, S.rules.meta, S.rules.kw, autoDupOn(), S.rules.customCats||[]])){ S.rules.cat = v.cat||{}; S.rules.meta = v.meta||{}; S.rules.kw = v.kw||[]; S.rules.customCats = v.customCats||[]; S.rules.autoDup = v.autoDup!==false; changed = true; } }
+      else if (d.id==="settings" && !S.settingsPending){ const r = readSettings(d.data()); if (JSON.stringify(r) !== JSON.stringify(readSettings({catList:Object.entries(S.rules.cat), metaList:Object.entries(S.rules.meta), kw:S.rules.kw, customCats:S.rules.customCats, autoDup:autoDupOn(), ownNames:S.rules.ownNames}))){ S.rules = r; changed = true; } }
     }
     if (changed){ recompute(); render(); }
   } catch(e){}
@@ -787,13 +791,13 @@ async function flushDirty(){
       for (const t of part) S.touched.delete(t.id);
     }
     S.lastSaved = new Date();
-  } catch(e){ S.msg = saveErr(e); }
+  } catch(e){ S.saveError = "交易修改未能保存：" + (e?.message || e?.code || e) + "。请刷新页面后重试；若仍失败，请截图反馈。"; }
   S.saving = false; if (adopted){ recompute(); render(); } else renderSync();
 }
 let settingsTimer=null;
 function settingsChanged(){
   S.settingsPending = true; clearTimeout(settingsTimer);
-  settingsTimer = setTimeout(async ()=>{ try { await saveSettings(); } catch(e){ S.msg = saveErr(e); render(); } S.settingsPending = false; S.lastSaved = new Date(); renderSync(); }, 500);
+  settingsTimer = setTimeout(async ()=>{ try { await saveSettings(); S.saveError = null; } catch(e){ S.saveError = "规则未能保存：" + (e?.message || e?.code || e) + "。请刷新页面后重试；若仍失败，请截图反馈。"; render(); } S.settingsPending = false; S.lastSaved = new Date(); renderSync(); }, 500);
 }
 async function deleteFile(id){
   const f = S.files.find(x=>x.id===id); if (!f) return;
@@ -808,7 +812,7 @@ async function loadAll(){
   const imps = [], chunks = [];
   for (const d of snap.docs){
     const v = d.data();
-    if (d.id==="settings"){ S.rules.ownNames = v.ownNames||[]; S.rules.cat = v.cat||{}; S.rules.meta = v.meta||{}; S.rules.kw = v.kw||[]; S.rules.customCats = v.customCats||[]; S.rules.autoDup = v.autoDup !== false; }
+    if (d.id==="settings"){ S.rules = readSettings(v); }
     else if (d.id.startsWith("imp_")) imps.push(v);
     else if (d.id.startsWith("tx_")) chunks.push(v);
     else if (d.id.startsWith("an_")) S.analyses.push({id:d.id, ...v});
@@ -907,6 +911,7 @@ function render(){
   const L = ledger(); const view = {rules:vRules, import:vImport, overview:vOverview, month:vMonth, pivot:vPivot, detail:vDetail, pending:vPending, failed:vFailed, transfer:vTransfer, income:vIncome, analysis:vAnalysis}[S.tab] || vImport;
   const sample = S.files.some(f=>f.sample);
   $("#main").innerHTML = (sample ? `<div class="banner"><span><b>示例数据。</b>以下均为虚构账单，用于演示识别、核对与确认流程，不会被保存。导入你自己的账单后，示例将自动移除。</span><button class="btn sm" data-act="clearSamples">移除示例</button></div>` : "")
+    + (S.saveError ? `<div class="banner" style="background:var(--bad-soft)"><span style="color:var(--bad)"><b style="color:var(--bad)">保存失败。</b>${esc(S.saveError)}</span><button class="btn sm" data-act="dismissErr">知道了</button></div>` : "")
     + (S.msg ? `<p class="small" style="margin-top:12px;color:var(--warn)">${esc(S.msg)}</p>` : "") + view(L,p);
 }
 const months = () => [...new Set(S.txns.map(t=>t.month))].sort().reverse();
@@ -1335,6 +1340,7 @@ document.addEventListener("click", e => {
   const a = el.dataset.act, id = el.dataset.id, t = id && S.byId.get(id);
   if (a==="export") exportXlsx();
   else if (a==="backup") exportBackup();
+  else if (a==="dismissErr"){ S.saveError = null; render(); }
   else if (a==="mPrev" || a==="mNext"){ const ms = months(); const i = ms.indexOf(S.curMonth); const j = a==="mPrev" ? i+1 : i-1; if (ms[j]) { S.curMonth = ms[j]; render(); } }
   else if (a==="samples"){ loadSamples(); render(); }
   else if (a==="clearSamples"){ clearSamples(); render(); }
