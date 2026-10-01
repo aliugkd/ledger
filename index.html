@@ -221,7 +221,7 @@ const S = {
   mode:"connecting", db:null, uid:null, sampleCap:null, downloads:null,
   files:[],            // {id,name,channel,staged,sample,sheets,sheet,meta,check,ack,userTotal,order}
   txns:[], byId:new Map(),
-  rules:{ownNames:[], cat:{}, meta:{}, kw:[], customCats:[]},
+  rules:{ownNames:[], cat:{}, meta:{}, kw:[], customCats:[], subTags:[]},
   analyses:[],
   tab:"import", drill:null, f:{month:"all",channel:"all",type:"all",cat:"all",q:"",limit:300},
   confirmDel:null, dirty:new Set(), touched:new Set(), saving:false, lastSaved:null, msg:"",
@@ -448,8 +448,22 @@ const CAT_RULES = [
   ["人情", /礼物|份子|鲜花|花店/],
 ];
 const ALIPAY_MAP = {"餐饮美食":"餐饮","交通出行":"交通","日用百货":"日用","服饰装扮":"购物","数码电器":"购物","充值缴费":"水电通讯","住房物业":"住房","医疗健康":"医疗","教育培训":"教育","文化休闲":"娱乐","酒店旅游":"旅行","美容美发":"美容个护","运动户外":"运动健康","爱车养车":"交通","母婴亲子":"购物","家居家装":"购物","宠物":"日用","商业服务":null,"生活服务":null};
+// 子标签：{parent, name, kws}；关键词（含名称本身）命中即自动归属到该子标签及其上级分类
+const subsOf = c => (S.rules.subTags||[]).filter(x => x.parent === c);
+const subHit = (st, txt) => [st.name, ...(st.kws||[])].some(w => w && txt.includes(w));
+function subMatch(tx, parent){
+  const txt = [tx.cp, tx.desc, tx.rawType, tx.remark].join(" ");
+  return (S.rules.subTags||[]).find(st => (!parent || st.parent === parent) && subHit(st, txt)) || null;
+}
+const joinCat = (c, sub) => sub ? `${c}|${sub}` : (c || "");
+const splitCat = v => { const i = (v||"").indexOf("|"); return i < 0 ? [v||"", ""] : [v.slice(0,i), v.slice(i+1)]; };
+const catLabel = (c, sub) => sub ? `${c} › ${sub}` : c;
+function catOptions(selVal, extra = ""){
+  return extra + [...allCats(), PENDING_CAT].map(c => `<option value="${esc(c)}" ${selVal===c?"selected":""}>${esc(c)}</option>` + subsOf(c).map(st => `<option value="${esc(joinCat(c, st.name))}" ${selVal===joinCat(c, st.name)?"selected":""}>　› ${esc(st.name)}</option>`).join("")).join("");
+}
 function autoCat(tx){
-  const ru = ruleFor(tx); if (ru && ru.cat) return {cat:ru.cat, why: ru.kw ? `关键词规则「${ru.kw}」` : "你设置的对方规则"};
+  const ru = ruleFor(tx); if (ru && ru.cat) return {cat:ru.cat, sub:ru.sub||"", why: ru.kw ? `关键词规则「${ru.kw}」` : "你设置的对方规则"};
+  const sm = subMatch(tx); if (sm) return {cat:sm.parent, sub:sm.name, why:`子标签“${sm.name}”`};
   const txt = [tx.cp, tx.desc, tx.rawType].join(" ");
   for (const [c,re] of CAT_RULES) if (re.test(txt)) return {cat:c, why:"关键词：" + (txt.match(re)||[""])[0]};
   if (tx.channel==="alipay" && ALIPAY_MAP[tx.rawType]) return {cat:ALIPAY_MAP[tx.rawType], why:"支付宝分类：" + tx.rawType};
@@ -466,6 +480,12 @@ const tDec = t => t.transferDecision || (ruleFor(t)?.asSpend ? "消费" : null);
 const noteOf = t => t.note || ruleFor(t)?.note || "";
 const effState = tx => tx.excluded ? "excluded" : (tx.stateOverride || tx.state);
 const effCat = tx => tx.cat || tx._auto?.cat || PENDING_CAT;
+function effSub(tx){
+  if (tx.sub !== undefined) return tx.sub || "";
+  const c = effCat(tx);
+  if (!tx.cat && tx._auto?.sub && tx._auto.cat === c) return tx._auto.sub;
+  return subMatch(tx, c)?.name || "";
+}
 
 /* ============ 退款匹配 / 疑似重复 ============ */
 const ts = tx => Date.parse(`${tx.date}T${tx.time || "12:00:00"}`);
@@ -592,18 +612,18 @@ function ledger(){
   for (const t of S.txns){
     if (effState(t) !== "ok") continue;
     if (isSpend(t)){
-      lines.push({t, month:t.month, cat:effCat(t), amt:t.amount, kind: t._type==="转账" ? "转账·消费" : "消费"});
-      if (t.reimbursed) lines.push({t, month:t.month, cat:effCat(t), amt:-t.amount, kind:"已报销"});
+      lines.push({t, month:t.month, cat:effCat(t), sub:effSub(t), amt:t.amount, kind: t._type==="转账" ? "转账·消费" : "消费"});
+      if (t.reimbursed) lines.push({t, month:t.month, cat:effCat(t), sub:effSub(t), amt:-t.amount, kind:"已报销"});
     }
     else if (t._type === "退款"){
       const r = refundRes(t), o = r.match && S.byId.get(r.match);
-      if (r.apply === "orig" && o) lines.push({t, month:o.month, cat:effCat(o), amt:-t.amount, kind:"退款冲减", o});
-      else if (r.apply === "refundMonth" && o) lines.push({t, month:t.month, cat:effCat(o), amt:-t.amount, kind:"退款冲减", o});
+      if (r.apply === "orig" && o) lines.push({t, month:o.month, cat:effCat(o), sub:effSub(o), amt:-t.amount, kind:"退款冲减", o});
+      else if (r.apply === "refundMonth" && o) lines.push({t, month:t.month, cat:effCat(o), sub:effSub(o), amt:-t.amount, kind:"退款冲减", o});
       else if (r.apply === "income") income.push({t, month:t.month, amt:t.amount});
     }
     else if (t._type === "收入"){
       const o = offsetTarget(t);
-      if (o) lines.push({t, month:o.month, cat:effCat(o), amt:-t.amount, kind:offsetKind(t), o});
+      if (o) lines.push({t, month:o.month, cat:effCat(o), sub:effSub(o), amt:-t.amount, kind:offsetKind(t), o});
       else income.push({t, month:t.month, amt:t.amount});
     }
   }
@@ -729,7 +749,7 @@ async function addFiles(fileList){
 function clearSamples(){ const ids = new Set(S.files.filter(f=>f.sample).map(f=>f.id)); S.files = S.files.filter(f=>!f.sample); S.txns = S.txns.filter(t=>!ids.has(t.fileId)); recompute(); }
 
 /* ============ 保存 ============ */
-const DOC_KEYS = ["id","fileId","fileName","channel","line","date","time","month","amount","dir","status","state","cp","desc","rawType","orderId","mOrderId","method","remark","raw","cat","transferDecision","refundDecision","dupDecision","stateOverride","note","excluded","offsetOf","reimbursed"];
+const DOC_KEYS = ["id","fileId","fileName","channel","line","date","time","month","amount","dir","status","state","cp","desc","rawType","orderId","mOrderId","method","remark","raw","cat","transferDecision","refundDecision","dupDecision","stateOverride","note","excluded","offsetOf","reimbursed","sub"];
 const slim = t => { const o={}; for (const k of DOC_KEYS) if (k!=="fileName" && t[k]!==undefined && t[k]!=="" && t[k]!=="/" && t[k]!==null) o[k]=t[k]; if (o.raw) o.raw = o.raw.slice(0,160); return o; };
 const CHUNK = 250, CHUNK_BYTES = 180000;
 function chunkTxns(tx){
@@ -758,9 +778,9 @@ async function saveStaged(){
 }
 function saveErr(e){ return e?.code==="quota_exceeded" ? "存储空间已满。请删除部分旧账单后再保存。" : `保存失败：${e?.message||e}`; }
 // 规则以「列表」形式保存：交易对象名里常有 . / 等字符，不能直接当作字段名
-async function saveSettings(){ if (S.db && S.uid) await col().doc("settings").set({v:2, ownNames:S.rules.ownNames, catList:Object.entries(S.rules.cat), metaList:Object.entries(S.rules.meta), kw:S.rules.kw, customCats:S.rules.customCats, autoDup:autoDupOn()}); }
+async function saveSettings(){ if (S.db && S.uid) await col().doc("settings").set({v:2, ownNames:S.rules.ownNames, catList:Object.entries(S.rules.cat), metaList:Object.entries(S.rules.meta), kw:S.rules.kw, customCats:S.rules.customCats, subTags:S.rules.subTags||[], autoDup:autoDupOn()}); }
 function readSettings(v){
-  return { ownNames: v.ownNames||[], cat: v.catList ? Object.fromEntries(v.catList) : (v.cat||{}), meta: v.metaList ? Object.fromEntries(v.metaList) : (v.meta||{}), kw: v.kw||[], customCats: v.customCats||[], autoDup: v.autoDup !== false };
+  return { ownNames: v.ownNames||[], cat: v.catList ? Object.fromEntries(v.catList) : (v.cat||{}), meta: v.metaList ? Object.fromEntries(v.metaList) : (v.meta||{}), kw: v.kw||[], customCats: v.customCats||[], subTags: v.subTags||[], autoDup: v.autoDup !== false };
 }
 let dirtyTimer = null;
 function markDirty(t){
@@ -771,7 +791,7 @@ function markDirty(t){
   S.dirty.add(`${t.fileId}|${t._k}`);
   clearTimeout(dirtyTimer); dirtyTimer = setTimeout(flushDirty, 1200); renderSync();
 }
-const DEC_KEYS = ["cat","transferDecision","refundDecision","dupDecision","stateOverride","note","excluded","offsetOf","reimbursed"];
+const DEC_KEYS = ["cat","transferDecision","refundDecision","dupDecision","stateOverride","note","excluded","offsetOf","reimbursed","sub"];
 function mergeRemote(remoteTxns, localTxns){
   const rm = new Map(remoteTxns.map(r=>[r.id, r])); let changed = false;
   for (const t of localTxns){
@@ -795,7 +815,7 @@ async function refreshRemote(){
     const snap = await col().limit(1000).get(); let changed = false;
     for (const d of snap.docs){
       if (d.id.startsWith("tx_")){ const v = d.data(); const part = S.txns.filter(t=>t.fileId===v.fileId && t._k===v.k); if (mergeRemote(v.txns||[], part)) changed = true; }
-      else if (d.id==="settings" && !S.settingsPending){ const r = readSettings(d.data()); if (JSON.stringify(r) !== JSON.stringify(readSettings({catList:Object.entries(S.rules.cat), metaList:Object.entries(S.rules.meta), kw:S.rules.kw, customCats:S.rules.customCats, autoDup:autoDupOn(), ownNames:S.rules.ownNames}))){ S.rules = r; changed = true; } }
+      else if (d.id==="settings" && !S.settingsPending){ const r = readSettings(d.data()); if (JSON.stringify(r) !== JSON.stringify(readSettings({catList:Object.entries(S.rules.cat), metaList:Object.entries(S.rules.meta), kw:S.rules.kw, customCats:S.rules.customCats, subTags:S.rules.subTags, autoDup:autoDupOn(), ownNames:S.rules.ownNames}))){ S.rules = r; changed = true; } }
     }
     if (changed){ recompute(); render(); }
   } catch(e){}
@@ -982,7 +1002,7 @@ function noteBlock(t){
   return `<div class="notes">${own ? `<span class="chip acc">备注：${esc(own)}</span>` : rule ? `<span class="chip">规则备注：${esc(rule)}</span>` : ""}${offsetChips(t)}<button class="btn sm ghost notebtn" data-act="noteEdit" data-id="${esc(t.id)}">${own ? "编辑备注" : "添加备注"}</button>${isSpend(t) ? `<button class="btn sm ghost notebtn" data-act="splitEdit" data-id="${esc(t.id)}">AA / 报销</button>` : ""}${t.offsetOf ? `<button class="btn sm ghost notebtn" data-act="unlinkOffset" data-id="${esc(t.id)}">取消关联</button>` : ""}${t.excluded ? `<span class="chip bad">已排除 · ${esc(t.excluded.reason)}</span><button class="btn sm ghost" data-act="exRestore" data-id="${esc(t.id)}">恢复</button>` : S.exEdit===t.id ? `<span class="confirm small">排除原因 <select id="exReason"><option>重复记录</option><option>测试或误记</option><option>其他</option></select><button class="btn sm" data-act="exSave" data-id="${esc(t.id)}">确认排除</button><button class="btn sm ghost" data-act="exCancel">取消</button></span>` : `<button class="btn sm ghost notebtn" data-act="exEdit" data-id="${esc(t.id)}">排除</button>`}</div>`;
 }
 const txDesc = t => { const a = clean(t.cp) || clean(t.desc) || "—", b = clean(t.cp) && clean(t.desc) !== a ? clean(t.desc) : ""; return `${esc(a)}${b ? `<div class="muted small">${esc(b)}</div>` : ""}${noteBlock(t)}`; };
-const catSelect = (t, id, none) => `<select id="${id}" data-act="setCat" data-id="${esc(t.id)}" aria-label="分类">${none ? `<option value="" selected>${none}</option>` : ""}${[...allCats(),PENDING_CAT].map(c=>`<option ${!none && effCat(t)===c?"selected":""}>${c}</option>`).join("")}</select>`;
+const catSelect = (t, id, none) => `<select id="${id}" data-act="setCat" data-id="${esc(t.id)}" aria-label="分类">${catOptions(none ? "" : joinCat(effCat(t), effSub(t)), none ? `<option value="" selected>${none}</option>` : "")}</select>`;
 
 function vImport(L){
   const staged = S.files.filter(f=>f.staged), saved = S.files.filter(f=>!f.staged);
@@ -1090,7 +1110,7 @@ function vMonth(L){
     <button class="btn sm" data-act="mNext" ${i<=0?"disabled":""} aria-label="下个月">下个月 →</button></div></div>
   <div class="kpis" style="margin-top:12px"><div class="kpi"><div class="l">净消费 · ${lines.filter(l=>l.amt>0).length} 笔</div><div class="v">${yuan(spend)}</div></div><div class="kpi"><div class="l">收入 · ${inc.length} 笔</div><div class="v" style="color:var(--inc)">${yuan(income)}</div></div><div class="kpi"><div class="l">结余</div><div class="v">${yuan(income-spend)}</div></div><div class="kpi"><div class="l">待处理</div><div class="v" style="color:${pn?"var(--warn)":"inherit"}">${pn} 项</div></div></div>
   <div class="two" style="margin-top:14px">
-    <div class="panel"><h3 style="margin-top:0">消费构成</h3>${catList.length?catList.map(([c,v])=>`<div style="margin:7px 0"><div class="row small"><span class="grow">${c}</span><span style="font-family:var(--f-num)">${yuan(v)} · ${spend?Math.round(v/spend*100):0}%</span></div><div class="meter"><i style="width:${spend?Math.max(0,v/spend*100):0}%"></i></div></div>`).join(""):`<p class="muted small">本月暂无消费。</p>`}</div>
+    <div class="panel"><h3 style="margin-top:0">消费构成</h3>${catList.length?catList.map(([c,v])=>`<div style="margin:7px 0"><div class="row small"><span class="grow">${c}</span><span style="font-family:var(--f-num)">${yuan(v)} · ${spend?Math.round(v/spend*100):0}%</span></div><div class="meter"><i style="width:${spend?Math.max(0,v/spend*100):0}%"></i></div>${(()=>{ const sb = {}; for (const l of lines) if (l.cat===c && l.sub) sb[l.sub]=(sb[l.sub]||0)+l.amt; return Object.entries(sb).sort((a,b)=>b[1]-a[1]).map(([n,x])=>`<div class="row small muted" style="padding-left:14px;margin-top:3px"><span class="grow">› ${esc(n)}</span><span style="font-variant-numeric:tabular-nums">${yuan(x)}</span></div>`).join(""); })()}</div>`).join(""):`<p class="muted small">本月暂无消费。</p>`}</div>
     <div class="panel"><h3 style="margin-top:0">其他资金往来</h3><div class="checks">
       <div class="check"><span class="ic">·</span><span>内部转账 / 不计收支：${other.filter(t=>t._type!=="还款").length} 笔，${yuan(other.filter(t=>t._type!=="还款").reduce((a,t)=>a+t.amount,0))}</span></div>
       <div class="check"><span class="ic">·</span><span>还款：${other.filter(t=>t._type==="还款").length} 笔，${yuan(other.filter(t=>t._type==="还款").reduce((a,t)=>a+t.amount,0))}</span></div>
@@ -1117,18 +1137,20 @@ function emptyNote(){ return `<div class="panel" style="margin-top:20px"><h3 sty
 function vPivot(L){
   const ms = [...new Set(L.lines.map(l=>l.month))].sort().reverse(); if (!ms.length) return emptyNote();
   const cats = [...new Set([...allCats(),PENDING_CAT,...L.lines.map(l=>l.cat)])].filter(c=>L.lines.some(l=>l.cat===c));
-  const v = {}; for (const l of L.lines){ const k=l.cat+"|"+l.month; v[k]=(v[k]||0)+l.amt; }
+  const v = {}, vs = {}; for (const l of L.lines){ const k=l.cat+"|"+l.month; v[k]=(v[k]||0)+l.amt; if (l.sub){ const ks = l.cat+"\u0001"+l.sub+"|"+l.month; vs[ks]=(vs[ks]||0)+l.amt; } }
+  const subsIn = c => [...new Set(L.lines.filter(l=>l.cat===c && l.sub).map(l=>l.sub))];
+  const subRows = c => subsIn(c).map(sb => `<tr class="subrow"><td class="small muted" style="padding-left:28px">› ${esc(sb)}</td>${ms.map(m=>{const x=vs[c+"\u0001"+sb+"|"+m]; return x?`<td class="n cell small ${d&&d.cat===c&&d.sub===sb&&d.month===m?"on":""}" data-act="drill" data-cat="${c}" data-sub="${encK(sb)}" data-month="${m}" tabindex="0">${yuan(x)}</td>`:`<td class="n muted small">—</td>`}).join("")}<td class="n cell small" data-act="drill" data-cat="${c}" data-sub="${encK(sb)}" data-month="*" tabindex="0">${yuan(ms.reduce((a,m)=>a+(vs[c+"\u0001"+sb+"|"+m]||0),0))}</td></tr>`).join("");
   const rowT = c => ms.reduce((s,m)=>s+(v[c+"|"+m]||0),0), colT = m => cats.reduce((s,c)=>s+(v[c+"|"+m]||0),0);
   const gc = globalCheck(L); const d = S.drill;
-  const dl = d ? L.lines.filter(l=>(d.cat==="*"||l.cat===d.cat) && (d.month==="*"||l.month===d.month)).sort((a,b)=>ts(b.t)-ts(a.t)) : [];
+  const dl = d ? L.lines.filter(l=>(d.cat==="*"||l.cat===d.cat) && (!d.sub||l.sub===d.sub) && (d.month==="*"||l.month===d.month)).sort((a,b)=>ts(b.t)-ts(a.t)) : [];
   return `<h2>分类汇总</h2>
   <p class="lead">点按任一金额，即可在下方查看构成该金额的全部交易，合计与表格一致。退款以负数计入原交易所属分类。</p>
   <div class="checks"><div class="check ${gc.ok?"pass":"fail"}"><span class="ic">${gc.ok?"✓":"✗"}</span><span>分类合计 ${yuan(gc.pivotSum)} = 月度合计 ${yuan(gc.monthSum)} = 明细合计 ${yuan(gc.detailSum)}</span></div></div>
   <div class="tw" style="margin-top:8px"><table><thead><tr><th>分类</th>${ms.map(m=>`<th class="n">${m}</th>`).join("")}<th class="n">合计</th></tr></thead><tbody>
-  ${cats.map(c=>`<tr><td>${c===PENDING_CAT?`<span class="chip warn">${c}</span>`:c}</td>${ms.map(m=>{const x=v[c+"|"+m];return x?`<td class="n cell ${d&&d.cat===c&&d.month===m?"on":""}" data-act="drill" data-cat="${c}" data-month="${m}" tabindex="0">${yuan(x)}</td>`:`<td class="n muted">—</td>`}).join("")}<td class="n cell" data-act="drill" data-cat="${c}" data-month="*" tabindex="0"><strong>${yuan(rowT(c))}</strong></td></tr>`).join("")}
+  ${cats.map(c=>`<tr><td>${c===PENDING_CAT?`<span class="chip warn">${c}</span>`:c}</td>${ms.map(m=>{const x=v[c+"|"+m];return x?`<td class="n cell ${d&&d.cat===c&&!d.sub&&d.month===m?"on":""}" data-act="drill" data-cat="${c}" data-month="${m}" tabindex="0">${yuan(x)}</td>`:`<td class="n muted">—</td>`}).join("")}<td class="n cell" data-act="drill" data-cat="${c}" data-month="*" tabindex="0"><strong>${yuan(rowT(c))}</strong></td></tr>${subRows(c)}`).join("")}
   <tr class="tot"><td>合计</td>${ms.map(m=>`<td class="n cell" data-act="drill" data-cat="*" data-month="${m}" tabindex="0">${yuan(colT(m))}</td>`).join("")}<td class="n">${yuan(ms.reduce((s,m)=>s+colT(m),0))}</td></tr>
   </tbody></table></div>
-  ${d ? `<h3>${d.month==="*"?"全部月份":d.month} · ${d.cat==="*"?"全部分类":d.cat}：${dl.length} 笔，合计 ${yuan(dl.reduce((s,l)=>s+l.amt,0))}</h3>
+  ${d ? `<h3>${d.month==="*"?"全部月份":d.month} · ${d.cat==="*"?"全部分类":catLabel(d.cat, d.sub)}：${dl.length} 笔，合计 ${yuan(dl.reduce((s,l)=>s+l.amt,0))}</h3>
   <div class="tw"><table><thead><tr><th>时间</th><th>渠道</th><th>交易对象与说明</th><th>计入方式</th><th class="n">金额</th><th>来源</th></tr></thead><tbody>
   ${dl.map(l=>`<tr><td class="t">${l.t.date} ${l.t.time.slice(0,5)}</td><td>${CHANNELS[l.t.channel]}</td><td class="wrapt">${txDesc(l.t)}${l.o?`<div class="small muted">冲减 ${l.o.date} ${esc(l.o.cp)} ${yuan(l.o.amount)}</div>`:""}</td><td><span class="chip ${l.amt<0?"inc":""}">${l.kind}</span></td><td class="n ${l.amt<0?"neg":""}">${yuan(l.amt)}</td><td class="src">${src(l.t)}</td></tr>`).join("")}
   </tbody></table></div>` : ""}`;
@@ -1196,7 +1218,7 @@ function vPending(L,p){
     `<button class="btn sm pri" data-act="bulkTransfer" data-k="${encK(g.k)}" data-v="消费">${g.list.length>1?"全部":""}计为消费</button><button class="btn sm" data-act="bulkTransfer" data-k="${encK(g.k)}" data-v="非消费">${g.list.length>1?"全部":""}不计为消费</button><button class="btn sm ghost" data-act="bulkTransfer" data-k="${encK(g.k)}" data-v="内部">本人账户间转账</button>`)).join("")}</div>${more(gT.length)}` : ""}
   ${gC.length ? head("待分类", p.cat.length, "以下消费未匹配到分类规则，暂计入“待确认”。为某个交易对象选定分类后，该对象的全部交易（包括今后导入的）都将沿用此分类。",
     (S.sampleCap ? `<button class="btn sm" data-act="suggestCat" ${S.sugBusy?"disabled":""}>${S.sugBusy?"正在生成建议…":"由 Claude 建议分类"}</button>` : "") + (gC.some(g=>S.catSug[g.k]) ? `<button class="btn sm pri" data-act="acceptSug">采纳全部 ${gC.filter(g=>S.catSug[g.k]).length} 条建议</button>` : "")) + (S.sugErr?`<p class="small" style="color:var(--bad)">${esc(S.sugErr)}</p>`:"") + `<div class="pgroup">${gC.slice(0,lim).map(g=>grp(g, S.catSug[g.k] ? `<div class="small"><span class="chip acc">建议：${esc(S.catSug[g.k])}</span></div>` : "",
-    `<select id="gc-${encK(g.k)}" data-act="bulkCat" data-k="${encK(g.k)}" aria-label="分类"><option value="">选择分类</option>${allCats().map(c=>`<option>${c}</option>`).join("")}</select>${S.catSug[g.k]?`<button class="btn sm" data-act="oneSug" data-k="${encK(g.k)}">采纳“${esc(S.catSug[g.k])}”</button>`:""}`)).join("")}</div>${more(gC.length)}` : ""}
+    `<select id="gc-${encK(g.k)}" data-act="bulkCat" data-k="${encK(g.k)}" aria-label="分类">${catOptions("", `<option value="">选择分类</option>`)}</select>${S.catSug[g.k]?`<button class="btn sm" data-act="oneSug" data-k="${encK(g.k)}">采纳“${esc(S.catSug[g.k])}”</button>`:""}`)).join("")}</div>${more(gC.length)}` : ""}
   ${p.state.length ? head("处理中的交易", p.state.length, "以下交易尚在处理中，暂不计入任何合计。") + `<div class="pgroup">${p.state.map(t=>it(t, `<div class="small muted">状态：${esc(t.status)}</div>`,
     `<button class="btn sm" data-act="state" data-id="${esc(t.id)}" data-v="ok">视为成功</button><button class="btn sm ghost" data-act="state" data-id="${esc(t.id)}" data-v="failed">视为无效</button>`)).join("")}</div>` : ""}`;
 }
@@ -1210,24 +1232,28 @@ function vRules(){
   }
   const gs = [...groups.values()].filter(g=>!q || g.k.toLowerCase().includes(q) || g.list.some(t=>[t.desc,t.rawType].join(" ").toLowerCase().includes(q))).sort((a,b)=>b.sum-a.sum);
   const lim = S.rLimit || 50;
-  const catOf = g => { const c = {}; for (const t of g.list) if (t._type==="消费" || tDec(t)==="消费") c[effCat(t)] = (c[effCat(t)]||0) + 1; const e = Object.entries(c).sort((a,b)=>b[1]-a[1]); return e.length ? e.map(([k,n])=>e.length>1?`${k}×${n}`:k).join("、") : "转账，未计为消费"; };
+  const catOf = g => { const c = {}; for (const t of g.list) if (t._type==="消费" || tDec(t)==="消费"){ const lb = catLabel(effCat(t), effSub(t)); c[lb] = (c[lb]||0) + 1; } const e = Object.entries(c).sort((a,b)=>b[1]-a[1]); return e.length ? e.map(([k,n])=>e.length>1?`${k}×${n}`:k).join("、") : "转账，未计为消费"; };
   const kwCount = r => S.txns.filter(t=>[t.cp,t.desc,t.rawType].join(" ").includes(r.kw)).length;
-  const catOpts = sel => `<option value="">不指定分类</option>` + allCats().map(c=>`<option ${sel===c?"selected":""}>${c}</option>`).join("");
+  const catOpts = sel => catOptions(sel, `<option value="">不指定分类</option>`);
   return `<h2>分类规则</h2><p class="lead">按交易对象或关键词设定分类、备注，以及转账是否计为消费。规则保存后即刻应用于全部交易，并自动适用于今后导入的账单。优先级依次为：对象规则、关键词规则、系统规则。</p>
   <div class="panel" style="margin-bottom:14px"><h3 style="margin-top:0">自定义分类</h3><p class="small muted" style="margin:0 0 12px">新增的分类将出现在所有分类选项中，并用于分类汇总、消费洞察与 Claude 分类建议。</p>
     <div class="row">${allCats().map(c=>(S.rules.customCats||[]).includes(c) ? `<span class="chip acc">${esc(c)} <button class="btn sm ghost" style="padding:0 4px" data-act="catDel" data-c="${encK(c)}" aria-label="删除分类 ${esc(c)}">×</button></span>` : `<span class="chip">${esc(c)}</span>`).join(" ")}</div>
     <div class="row" style="margin-top:10px"><input type="text" id="newCat" placeholder="分类名称，例如：宠物、美妆、学习" maxlength="12" style="width:240px"><button class="btn pri sm" data-act="catAdd">添加分类</button></div>
   </div>
+  <div class="panel" style="margin-bottom:14px"><h3 style="margin-top:0">子标签</h3><p class="small muted" style="margin:0 0 12px">在分类下添加更细的子标签。为子标签设定关键词后，交易对象或说明中出现这些词的交易会自动打上该子标签，并归入其上级分类。</p>
+    ${allCats().filter(c=>subsOf(c).length).map(c=>`<div class="row small" style="margin:6px 0"><strong style="min-width:5em">${esc(c)}</strong>${subsOf(c).map(st=>`<span class="chip acc" title="关键词：${esc((st.kws||[]).join("、")||st.name)}">${esc(st.name)}${(st.kws||[]).length?` · ${esc(st.kws.join("、"))}`:""} <button class="btn sm ghost" style="padding:0 4px" data-act="subEditTag" data-p="${encK(c)}" data-n="${encK(st.name)}" aria-label="编辑">✎</button><button class="btn sm ghost" style="padding:0 4px" data-act="subDel" data-p="${encK(c)}" data-n="${encK(st.name)}" aria-label="删除">×</button></span>`).join(" ")}</div>`).join("") || `<p class="small muted">尚未添加子标签。</p>`}
+    ${(()=>{ const d = S.subDraft || {}; return `<div class="row" style="margin-top:10px"><select id="subParent" aria-label="上级分类">${allCats().map(c=>`<option ${d.parent===c?"selected":""}>${esc(c)}</option>`).join("")}</select><input type="text" id="subName" placeholder="子标签，例如：王者荣耀" maxlength="12" style="width:170px" value="${esc(d.name||"")}" ${d.name?"readonly":""}><input type="text" id="subKws" class="grow" style="min-width:180px" placeholder="自动归属关键词，用逗号分隔，例如：王者荣耀, 点券" value="${esc((d.kws||[]).join(", "))}"><button class="btn pri sm" data-act="subAdd">${d.name?"保存修改":"添加子标签"}</button>${d.name?`<button class="btn sm ghost" data-act="subCancel">取消</button>`:""}</div>`; })()}
+  </div>
   <div class="panel"><h3 style="margin-top:0">关键词规则</h3><p class="small muted" style="margin:0 0 12px">交易对象或商品说明中包含该关键词时，即套用此规则。例如“天梯”可同时匹配“广州天梯网络科技有限公司”与“天梯互娱”。</p>
-    ${(()=>{ const d = S.kwDraft || {}; return `<div class="row"><input type="text" id="kwText" placeholder="关键词，例如：天梯" style="width:160px" value="${esc(d.kw||"")}" ${d.kw?"readonly":""}><select id="kwCat" aria-label="分类">${catOpts(d.cat||"")}</select><input type="text" id="kwNote" placeholder="备注（选填）" class="grow" style="min-width:140px" value="${esc(d.note||"")}"><label class="small"><input type="checkbox" id="kwSpend" ${d.asSpend?"checked":""}> 转账计为消费</label><button class="btn pri sm" data-act="kwAdd">${d.kw?"保存修改":"添加规则"}</button>${d.kw?`<button class="btn sm ghost" data-act="kwCancel">取消</button>`:""}</div>`; })()}
-    ${S.rules.kw.length ? `<div class="tw" style="margin-top:10px"><table><thead><tr><th>关键词</th><th>分类</th><th>备注</th><th>转账算消费</th><th class="n">匹配</th><th></th></tr></thead><tbody>${S.rules.kw.map((r,i)=>`<tr><td><strong>${esc(r.kw)}</strong></td><td>${esc(r.cat||"—")}</td><td class="small">${esc(r.note||"—")}</td><td>${r.asSpend?"是":"—"}</td><td class="n">${kwCount(r)} 笔</td><td><button class="btn sm ghost" data-act="kwEdit" data-i="${i}">编辑</button><button class="btn sm ghost" data-act="kwDel" data-i="${i}">删除</button></td></tr>`).join("")}</tbody></table></div>` : ""}
+    ${(()=>{ const d = S.kwDraft || {}; return `<div class="row"><input type="text" id="kwText" placeholder="关键词，例如：天梯" style="width:160px" value="${esc(d.kw||"")}" ${d.kw?"readonly":""}><select id="kwCat" aria-label="分类">${catOpts(joinCat(d.cat||"", d.sub||""))}</select><input type="text" id="kwNote" placeholder="备注（选填）" class="grow" style="min-width:140px" value="${esc(d.note||"")}"><label class="small"><input type="checkbox" id="kwSpend" ${d.asSpend?"checked":""}> 转账计为消费</label><button class="btn pri sm" data-act="kwAdd">${d.kw?"保存修改":"添加规则"}</button>${d.kw?`<button class="btn sm ghost" data-act="kwCancel">取消</button>`:""}</div>`; })()}
+    ${S.rules.kw.length ? `<div class="tw" style="margin-top:10px"><table><thead><tr><th>关键词</th><th>分类</th><th>备注</th><th>转账算消费</th><th class="n">匹配</th><th></th></tr></thead><tbody>${S.rules.kw.map((r,i)=>`<tr><td><strong>${esc(r.kw)}</strong></td><td>${esc(r.cat ? catLabel(r.cat, r.sub) : "—")}</td><td class="small">${esc(r.note||"—")}</td><td>${r.asSpend?"是":"—"}</td><td class="n">${kwCount(r)} 笔</td><td><button class="btn sm ghost" data-act="kwEdit" data-i="${i}">编辑</button><button class="btn sm ghost" data-act="kwDel" data-i="${i}">删除</button></td></tr>`).join("")}</tbody></table></div>` : ""}
   </div>
   <h3>交易对象规则</h3>
   <div class="row"><input type="text" id="rq" placeholder="搜索交易对象" value="${esc(S.rq||"")}" class="grow" style="min-width:200px"><span class="small muted">${gs.length} 个对象</span></div>
   <div class="tw" style="margin-top:10px"><table><thead><tr><th>交易对象</th><th class="n">笔数</th><th class="n">金额</th><th>当前分类</th><th>备注</th><th></th></tr></thead><tbody>
   ${gs.slice(0,lim).map(g=>{ const ru = S.rules.cat[g.k] || S.rules.meta[g.k]; const m = S.rules.meta[g.k]||{}; const edit = S.editK===g.k;
     return `<tr><td class="wrapt"><strong>${esc(g.k)}</strong>${ru?` <span class="chip acc">已设定</span>`:""}${g.tr?`<div class="small muted">其中转账 ${g.tr} 笔，${g.list.filter(t=>t._type==="转账"&&tDec(t)==="消费").length} 笔计为消费</div>`:""}</td><td class="n">${g.list.length}</td><td class="n">${yuan(g.sum)}</td><td class="small">${esc(catOf(g))}</td><td class="small">${esc(m.note||"—")}</td><td>${edit?"":`<button class="btn sm" data-act="ruleEdit" data-k="${encK(g.k)}">编辑</button>`}</td></tr>
-    ${edit?`<tr><td colspan="6" style="background:var(--accent-soft)"><div class="row"><label class="small">分类 <select id="reCat">${catOpts(S.rules.cat[g.k]||"")}</select></label><input type="text" id="reNote" placeholder="备注（选填）" value="${esc(m.note||"")}" class="grow" style="min-width:180px">${g.tr?`<label class="small"><input type="checkbox" id="reSpend" ${m.asSpend?"checked":""}> 转给该对象的款项计为消费</label>`:""}<button class="btn pri sm" data-act="ruleSave" data-k="${encK(g.k)}">保存并应用于 ${g.list.length} 笔交易</button>${ru?`<button class="btn sm ghost" data-act="ruleClear" data-k="${encK(g.k)}">删除规则</button>`:""}<button class="btn sm ghost" data-act="ruleCancel">取消</button></div><p class="small muted" style="margin:8px 0 0">保存后，该对象此前单独调整过的分类将统一为此设置。</p>
+    ${edit?`<tr><td colspan="6" style="background:var(--accent-soft)"><div class="row"><label class="small">分类 <select id="reCat">${catOpts(joinCat(S.rules.cat[g.k]||"", S.rules.meta[g.k]?.sub||""))}</select></label><input type="text" id="reNote" placeholder="备注（选填）" value="${esc(m.note||"")}" class="grow" style="min-width:180px">${g.tr?`<label class="small"><input type="checkbox" id="reSpend" ${m.asSpend?"checked":""}> 转给该对象的款项计为消费</label>`:""}<button class="btn pri sm" data-act="ruleSave" data-k="${encK(g.k)}">保存并应用于 ${g.list.length} 笔交易</button>${ru?`<button class="btn sm ghost" data-act="ruleClear" data-k="${encK(g.k)}">删除规则</button>`:""}<button class="btn sm ghost" data-act="ruleCancel">取消</button></div><p class="small muted" style="margin:8px 0 0">保存后，该对象此前单独调整过的分类将统一为此设置。</p>
       <details open><summary>逐笔设置分类与备注（${g.list.length} 笔）</summary><div class="tw" style="margin-top:8px"><table><thead><tr><th>时间</th><th>说明与备注</th><th>分类</th><th class="n">金额</th><th>来源</th></tr></thead><tbody>${g.list.slice().sort((x,y)=>ts(y)-ts(x)).map(t=>`<tr><td class="t">${t.date} ${t.time.slice(0,5)}</td><td class="wrapt"><span class="small">${esc(clean(t.desc)||t.rawType||"—")}</span>${noteBlock(t)}</td><td>${t._type==="消费"||tDec(t)==="消费" ? catSelect(t,"rc-"+t.id) : catSelect(t,"rc-"+t.id,"不计为消费")}</td><td class="n">${yuan(t.amount)}</td><td class="src">${src(t)}</td></tr>`).join("")}</tbody></table></div></details></td></tr>`:""}`; }).join("")}
   </tbody></table></div>
   ${gs.length>lim?`<button class="btn" style="margin-top:8px" data-act="rMore">显示更多</button>`:""}`;
@@ -1240,7 +1266,7 @@ function saveNote(t){
 function applyRuleTo(match, asSpend){
   let n = 0;
   for (const t of S.txns){ if (!match(t)) continue; n++;
-    if (t.cat){ delete t.cat; markDirty(t); }
+    if (t.cat || t.sub !== undefined){ delete t.cat; delete t.sub; markDirty(t); }
     if (asSpend && t.transferDecision && t.transferDecision!=="消费"){ delete t.transferDecision; markDirty(t); }
   }
   recompute(); settingsChanged(); return n;
@@ -1275,16 +1301,24 @@ function vIncome(L){
 function spendStats(L, from, to){
   const lines = L.lines.filter(l=>(!from||l.month>=from)&&(!to||l.month<=to));
   const ms = [...new Set(lines.map(l=>l.month))].sort();
-  const byCat = {}; for (const l of lines) byCat[l.cat]=(byCat[l.cat]||0)+l.amt;
+  const byCat = {}, bySub = {}; for (const l of lines){ byCat[l.cat]=(byCat[l.cat]||0)+l.amt; if (l.sub){ const k = catLabel(l.cat, l.sub); bySub[k]=(bySub[k]||0)+l.amt; } }
   const total = lines.reduce((s,l)=>s+l.amt,0);
   const pos = lines.filter(l=>l.amt>0);
-  const mer = {}; for (const l of pos){ const k = normName(l.t.cp||l.t.desc)||"(未知)"; const m = mer[k] = mer[k]||{name:l.t.cp||l.t.desc, n:0, s:0, cat:l.cat, months:new Set()}; m.n++; m.s+=l.amt; m.months.add(l.month); }
-  const merchants = Object.values(mer).sort((a,b)=>b.s-a.s);
+  // 商户按净额统计：退款、AA 回款、报销冲减都记回原消费的商户，与分类占比口径一致
+  const mer = {};
+  for (const l of lines){
+    const src = l.o || l.t; const k = normName(src.cp||src.desc) || "(未知)";
+    const m = mer[k] = mer[k] || {name: clean(src.cp)||clean(src.desc)||"(未知)", n:0, s:0, gross:0, back:0, cats:{}, months:new Set()};
+    m.s += l.amt; m.cats[l.cat] = (m.cats[l.cat]||0) + l.amt;
+    if (l.amt > 0){ m.n++; m.gross += l.amt; m.months.add(l.month); } else m.back += -l.amt;
+  }
+  for (const m of Object.values(mer)){ const cs = Object.entries(m.cats).filter(([,v])=>v!==0).sort((a,b)=>b[1]-a[1]); m.cat = cs.length > 1 ? cs.map(([c,v])=>`${c} ${yuan(v)}`).join("、") : (cs[0]?.[0] || Object.keys(m.cats)[0] || ""); }
+  const merchants = Object.values(mer).filter(m=>m.n>0).sort((a,b)=>b.s-a.s);
   const small = pos.filter(l=>l.amt<=3000);
   const night = pos.filter(l=>{ const h=+(l.t.time||"12").slice(0,2); return l.t.time && (h>=22||h<5); });
   const weekend = pos.filter(l=>[0,6].includes(new Date(l.t.date).getDay()));
   const recurring = merchants.filter(m=>m.months.size>=2 && ms.length>=2 || /会员|订阅|包月|icloud|vip/i.test(m.name));
-  return {months:ms, total, byCat:Object.entries(byCat).sort((a,b)=>b[1]-a[1]), merchants, small:{n:small.length, s:small.reduce((a,l)=>a+l.amt,0)}, night:{n:night.length, s:night.reduce((a,l)=>a+l.amt,0)}, weekend:{n:weekend.length,s:weekend.reduce((a,l)=>a+l.amt,0)}, recurring, count:pos.length};
+  return {months:ms, total, bySub:Object.entries(bySub).sort((a,b)=>b[1]-a[1]), byCat:Object.entries(byCat).sort((a,b)=>b[1]-a[1]), merchants, small:{n:small.length, s:small.reduce((a,l)=>a+l.amt,0)}, night:{n:night.length, s:night.reduce((a,l)=>a+l.amt,0)}, weekend:{n:weekend.length,s:weekend.reduce((a,l)=>a+l.amt,0)}, recurring, count:pos.length};
 }
 function vAnalysis(L){
   const ms = months().slice().reverse(); if (!L.lines.length) return emptyNote();
@@ -1298,7 +1332,7 @@ function vAnalysis(L){
   <div class="kpis" style="margin-top:12px"><div class="kpi"><div class="l">净消费</div><div class="v">${yuan(st.total)}</div></div><div class="kpi"><div class="l">月均</div><div class="v">${yuan(Math.round(st.total/monthsN))}</div></div><div class="kpi"><div class="l">30 元以下小额消费</div><div class="v">${st.small.n} 笔 · ${yuan(st.small.s)}</div></div><div class="kpi"><div class="l">22 点后的消费</div><div class="v">${st.night.n} 笔 · ${yuan(st.night.s)}</div></div></div>
   <div class="two" style="margin-top:12px">
     <div class="panel"><h3 style="margin-top:0">分类占比</h3>${st.byCat.map(([c,v])=>`<div style="margin:6px 0"><div class="row small"><span class="grow">${c}</span><span class="n" style="font-family:var(--f-num)">${yuan(v)} · ${st.total?Math.round(v/st.total*100):0}%</span></div><div class="meter"><i style="width:${st.total?Math.max(0,v/st.total*100):0}%"></i></div></div>`).join("")}</div>
-    <div class="panel"><h3 style="margin-top:0">消费最高的商户</h3><div class="tw"><table><thead><tr><th>商户</th><th class="n">笔数</th><th class="n">金额</th></tr></thead><tbody>${st.merchants.slice(0,10).map(m=>`<tr><td class="wrapt">${esc(m.name)}<div class="small muted">${m.cat}</div></td><td class="n">${m.n}</td><td class="n">${yuan(m.s)}</td></tr>`).join("")}</tbody></table></div></div>
+    <div class="panel"><h3 style="margin-top:0">消费最高的商户</h3><p class="small muted" style="margin:-4px 0 8px">按净额统计，已扣除退款、AA 回款与报销，与分类占比口径一致。</p><div class="tw"><table><thead><tr><th>商户</th><th class="n">笔数</th><th class="n">金额</th></tr></thead><tbody>${st.merchants.slice(0,10).map(m=>`<tr><td class="wrapt">${esc(m.name)}<div class="small muted">${esc(m.cat)}</div>${m.back?`<div class="small muted">支付 ${yuan(m.gross)}，已冲减 ${yuan(m.back)}</div>`:""}</td><td class="n">${m.n}</td><td class="n">${yuan(m.s)}</td></tr>`).join("")}</tbody></table></div></div>
   </div>
   ${S.anErr?`<p style="color:var(--bad)">${esc(S.anErr)}</p>`:""}
   ${S.anBusy?`<div class="panel" style="margin-top:12px"><p class="muted small" style="margin:0">Claude 正在分析所选期间的消费数据…</p>${S.anText?`<pre class="small muted" style="white-space:pre-wrap;margin:6px 0 0">${esc(S.anText.slice(-400))}</pre>`:""}</div>`:""}
@@ -1322,6 +1356,7 @@ async function analyze(){
   const data = {
     区间:`${from} 至 ${to}（${st.months.length} 个月）`, 净消费:plain(st.total), 消费笔数:st.count,
     分类:st.byCat.map(([c,v])=>({分类:c, 金额:plain(v), 占比:st.total?Math.round(v/st.total*100)+"%":"0%"})),
+    子标签:st.bySub.slice(0,30).map(([c,v])=>({子标签:c, 金额:plain(v)})),
     每月分类:Object.fromEntries(st.months.map(m=>[m, Object.fromEntries(Object.entries(L.lines.filter(l=>l.month===m).reduce((o,l)=>(o[l.cat]=(o[l.cat]||0)+l.amt,o),{})).map(([k,v])=>[k,plain(v)]))])),
     商户前30:st.merchants.slice(0,30).map(m=>({对方:m.name, 分类:m.cat, 笔数:m.n, 金额:plain(m.s), 出现月数:m.months.size})),
     小额30元以下:{笔数:st.small.n, 金额:plain(st.small.s)}, 深夜22点后:{笔数:st.night.n, 金额:plain(st.night.s)}, 周末:{笔数:st.weekend.n, 金额:plain(st.weekend.s)},
@@ -1370,13 +1405,13 @@ ${JSON.stringify(items)}`;
 /* ============ 导出 ============ */
 async function exportXlsx(){
   const L = ledger(), p = pendingItems(), ms = monthStats(L);
-  const row = t => [t.date, t.time, CHANNELS[t.channel], t.cp, t.desc, noteOf(t), t._type, (t._type==="消费"||t._type==="转账")?effCat(t):"", t.dir, plain(t.amount), t.status, t.fileName, t.line, t.orderId];
-  const H = ["日期","时间","渠道","交易对象","说明","备注","类型","分类","收/支","金额","状态","来源文件","原始行号","交易单号"];
+  const row = t => [t.date, t.time, CHANNELS[t.channel], t.cp, t.desc, noteOf(t), t._type, (t._type==="消费"||t._type==="转账")?effCat(t):"", (t._type==="消费"||t._type==="转账")?effSub(t):"", t.dir, plain(t.amount), t.status, t.fileName, t.line, t.orderId];
+  const H = ["日期","时间","渠道","交易对象","说明","备注","类型","分类","子标签","收/支","金额","状态","来源文件","原始行号","交易单号"];
   const wb = XLSX.utils.book_new(); const add = (name, aoa) => XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), name);
   add("月度总览", [["月份","消费","退款冲减","净消费","收入","结余","内部转账","还款"], ...Object.keys(ms).sort().map(k=>{const m=ms[k];return [k,plain(m.spend),plain(m.refund),plain(m.spend-m.refund),plain(m.income),plain(m.income-m.spend+m.refund),plain(m.internal),plain(m.repay)]})]);
   const mk = [...new Set(L.lines.map(l=>l.month))].sort(); const cats=[...new Set([...allCats(),PENDING_CAT,...L.lines.map(l=>l.cat)])].filter(c=>L.lines.some(l=>l.cat===c));
   add("分类汇总", [["分类",...mk,"合计"], ...cats.map(c=>{const vs=mk.map(m=>plain(L.lines.filter(l=>l.cat===c&&l.month===m).reduce((s,l)=>s+l.amt,0)));return [c,...vs,+vs.reduce((a,b)=>a+b,0).toFixed(2)]})]);
-  add("消费明细", [["计入月份","分类","计入方式","计入金额",...H], ...L.lines.map(l=>[l.month,l.cat,l.kind,plain(l.amt),...row(l.t)])]);
+  add("消费明细", [["计入月份","分类","子标签","计入方式","计入金额",...H], ...L.lines.map(l=>[l.month,l.cat,l.sub||"",l.kind,plain(l.amt),...row(l.t)])]);
   add("全部明细", [H, ...S.txns.slice().sort((a,b)=>ts(a)-ts(b)).map(row)]);
   add("待处理", [["事项",...H], ...[["疑似重复",p.dup],["退款待匹配",p.refund],["转账待确认",p.transfer],["待分类",p.cat],["处理中",p.state]].flatMap(([k,a])=>a.map(t=>[k,...row(t)]))]);
   add("无效交易", [H, ...S.txns.filter(t=>effState(t)==="failed").map(row)]);
@@ -1405,7 +1440,7 @@ document.addEventListener("click", e => {
   else if (a==="del"){ S.confirmDel = id; render(); }
   else if (a==="delNo"){ S.confirmDel = null; render(); }
   else if (a==="delYes") deleteFile(id);
-  else if (a==="drill"){ const d = {cat:el.dataset.cat, month:el.dataset.month}; S.drill = S.drill && S.drill.cat===d.cat && S.drill.month===d.month ? null : d; render(); }
+  else if (a==="drill"){ const d = {cat:el.dataset.cat, month:el.dataset.month, sub: el.dataset.sub ? decodeURIComponent(el.dataset.sub) : ""}; S.drill = S.drill && S.drill.cat===d.cat && S.drill.month===d.month && (S.drill.sub||"")===d.sub ? null : d; render(); }
   else if (a==="more"){ S.f.limit += 300; render(); }
   else if (a==="analyze") analyze();
   else if (a==="suggestCat") suggestCats();
@@ -1446,15 +1481,17 @@ document.addEventListener("click", e => {
   else if (a==="toRule"){ S.rq = decodeURIComponent(el.dataset.k); S.editK = S.rq; S.tab = "rules"; render(); window.scrollTo(0,0); }
   else if (a==="ruleSave" || a==="ruleClear"){
     const k = decodeURIComponent(el.dataset.k);
-    const cat = a==="ruleSave" ? $("#reCat").value : "", note = a==="ruleSave" ? $("#reNote").value.trim() : "", asSpend = a==="ruleSave" && !!$("#reSpend")?.checked;
+    const [cat, sub] = a==="ruleSave" ? splitCat($("#reCat").value) : ["", ""];
+    const note = a==="ruleSave" ? $("#reNote").value.trim() : "", asSpend = a==="ruleSave" && !!$("#reSpend")?.checked;
     if (cat) S.rules.cat[k] = cat; else delete S.rules.cat[k];
-    if (note || asSpend) S.rules.meta[k] = {...(note?{note}:{}), ...(asSpend?{asSpend:true}:{})}; else delete S.rules.meta[k];
+    if (note || asSpend || sub) S.rules.meta[k] = {...(note?{note}:{}), ...(asSpend?{asSpend:true}:{}), ...(sub?{sub}:{})}; else delete S.rules.meta[k];
     const n = applyRuleTo(t => gkey(t)===k, asSpend);
     S.editK = null; S.msg = a==="ruleSave" ? `已为“${k}”设定规则，应用于 ${n} 笔交易。` : `已删除“${k}”的规则。`; render();
   }
   else if (a==="kwAdd"){
     const kw = $("#kwText").value.trim(); if (!kw){ S.msg = "请输入关键词。"; render(); return; }
-    const r = {kw, cat:$("#kwCat").value, note:$("#kwNote").value.trim(), asSpend:$("#kwSpend").checked};
+    const [kc, ks] = splitCat($("#kwCat").value);
+    const r = {kw, cat:kc, ...(ks?{sub:ks}:{}), note:$("#kwNote").value.trim(), asSpend:$("#kwSpend").checked};
     if (!r.cat && !r.note && !r.asSpend){ S.msg = "请至少设定分类、备注或“转账计为消费”中的一项。"; render(); return; }
     S.rules.kw = S.rules.kw.filter(x=>x.kw!==kw).concat([r]);
     const n = applyRuleTo(t => !S.rules.cat[keyOf(t)] && [t.cp,t.desc,t.rawType].join(" ").includes(kw), r.asSpend);
@@ -1471,6 +1508,24 @@ document.addEventListener("click", e => {
     const used = S.txns.filter(t=>t.cat===c).length + Object.values(S.rules.cat).filter(v=>v===c).length + S.rules.kw.filter(r=>r.cat===c).length;
     if (used){ S.msg = `“${c}”仍被 ${used} 处交易或规则使用。请先更改这些分类，再删除。`; render(); return; }
     S.rules.customCats = (S.rules.customCats||[]).filter(x=>x!==c); settingsChanged(); S.msg = `已删除分类“${c}”。`; render();
+  }
+  else if (a==="subAdd"){
+    const parent = $("#subParent").value, name = $("#subName").value.trim().replace(/[|]/g,"");
+    const kws = $("#subKws").value.split(/[,，、\s]+/).map(x=>x.trim()).filter(Boolean);
+    if (!name){ S.msg = "请输入子标签名称。"; render(); return; }
+    const editing = S.subDraft;
+    S.rules.subTags = (S.rules.subTags||[]).filter(x => !(x.parent === (editing?.parent||parent) && x.name === name)).concat([{parent, name, kws}]);
+    S.subDraft = null; recompute(); settingsChanged();
+    const n = S.txns.filter(t => effCat(t) === parent && effSub(t) === name).length;
+    S.msg = `已${editing?"更新":"添加"}子标签“${parent} › ${name}”，当前归属 ${n} 笔交易。`; render();
+  }
+  else if (a==="subEditTag"){ const p = decodeURIComponent(el.dataset.p), n = decodeURIComponent(el.dataset.n); S.subDraft = {...(S.rules.subTags||[]).find(x=>x.parent===p && x.name===n)}; render(); const k = $("#subKws"); if (k) k.focus(); }
+  else if (a==="subCancel"){ S.subDraft = null; render(); }
+  else if (a==="subDel"){
+    const p = decodeURIComponent(el.dataset.p), n = decodeURIComponent(el.dataset.n);
+    const used = S.txns.filter(t=>t.sub===n && t.cat===p).length + Object.entries(S.rules.meta).filter(([k,m])=>m.sub===n && S.rules.cat[k]===p).length + S.rules.kw.filter(r=>r.sub===n && r.cat===p).length;
+    if (used){ S.msg = `“${p} › ${n}”仍被 ${used} 处交易或规则直接指定。请先更改它们，再删除。`; render(); return; }
+    S.rules.subTags = (S.rules.subTags||[]).filter(x => !(x.parent===p && x.name===n)); recompute(); settingsChanged(); S.msg = `已删除子标签“${p} › ${n}”。`; render();
   }
   else if (a==="kwEdit"){ S.kwDraft = {...S.rules.kw[+el.dataset.i]}; render(); const n = $("#kwNote"); if (n) n.focus(); }
   else if (a==="kwCancel"){ S.kwDraft = null; render(); }
@@ -1495,15 +1550,18 @@ document.addEventListener("change", e => {
   const f = S.files.find(x=>x.id===el.dataset.id);
   if (a==="setCat"){
     const t = S.byId.get(el.dataset.id); if (!t) return;
-    if (el.value) t.cat = el.value; else delete t.cat;
-    if (t._type==="转账" && el.value && el.value!==PENDING_CAT && tDec(t)!=="消费") t.transferDecision = "消费";
-    markDirty(t); recompute(); S.msg = `已将这笔交易归入“${effCat(t)}”，仅影响这一笔。如需对该交易对象统一设置，请使用“分类规则”。`; render(); return;
+    const [c, sub] = splitCat(el.value);
+    if (c) t.cat = c; else delete t.cat;
+    if (sub) t.sub = sub; else delete t.sub;
+    if (t._type==="转账" && c && c!==PENDING_CAT && tDec(t)!=="消费") t.transferDecision = "消费";
+    markDirty(t); recompute(); S.msg = `已将这笔交易归入“${catLabel(effCat(t), effSub(t))}”，仅影响这一笔。如需对该交易对象统一设置，请使用“分类规则”。`; render(); return;
   }
   if (a==="autoDup"){ S.rules.autoDup = el.checked; settingsChanged(); render(); return; }
   if (a==="bulkCat"){
     const k = decodeURIComponent(el.dataset.k), v = el.value; if (!v) return;
-    for (const t of pendingItems().cat) if (gkey(t)===k){ t.cat = v; markDirty(t); }
-    if (k !== "（无交易对象）"){ S.rules.cat[k] = v; settingsChanged(); }
+    const [c, sub] = splitCat(v);
+    for (const t of pendingItems().cat) if (gkey(t)===k){ t.cat = c; if (sub) t.sub = sub; else delete t.sub; markDirty(t); }
+    if (k !== "（无交易对象）"){ S.rules.cat[k] = c; if (sub) S.rules.meta[k] = {...(S.rules.meta[k]||{}), sub}; settingsChanged(); }
     recompute(); render(); return;
   }
   if (a==="spDays"){ S.splitDays = Math.max(0, Math.min(120, +el.value || 0)); render(); return; }
