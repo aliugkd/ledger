@@ -224,7 +224,7 @@ const S = {
   rules:{ownNames:[], cat:{}, meta:{}, kw:[], customCats:[], subTags:[]},
   analyses:[],
   tab:"import", drill:null, f:{month:"all",channel:"all",type:"all",cat:"all",q:"",limit:300},
-  confirmDel:null, dirty:new Set(), touched:new Set(), saving:false, lastSaved:null, msg:"",
+  confirmDel:null, dirty:new Set(), touched:new Set(), openGroups:new Set(), saving:false, lastSaved:null, msg:"",
   catSug:{}, sugBusy:false, sugErr:"",
   anFrom:"", anTo:"", anBusy:false, anText:"", anResult:null, anErr:"",
 };
@@ -1207,8 +1207,22 @@ function vPending(L,p){
   const strong = p.dup.filter(t=>t._dup.level==="强");
   const withMatch = p.refund.filter(t=>refundRes(t).match);
   const gT = groupBy(p.transfer), gC = groupBy(p.cat);
-  const grp = (g, body, actions) => `<div class="pitem"><div class="what"><strong>${esc(g.k)}</strong><span class="muted small">${g.list.length} 笔 · ${g.list[g.list.length-1].date} 至 ${g.list[0].date}</span><span class="amt">${yuan(g.sum)}</span></div>${body||""}<div class="row">${actions}</div>
-    ${g.list.length>1?`<details><summary>查看这 ${g.list.length} 笔</summary><div class="tw" style="margin-top:6px"><table><tbody>${g.list.map(t=>`<tr><td class="t">${t.date} ${t.time.slice(0,5)}</td><td class="small wrapt">${esc(clean(t.desc)||t.rawType)}</td><td class="n">${yuan(t.amount)}</td><td class="src">${src(t)}</td></tr>`).join("")}</tbody></table></div></details>`:`<div class="small muted">${esc(clean(g.list[0].desc)||g.list[0].rawType)} · ${g.list[0].date} · <span class="src">${src(g.list[0])}</span></div>`}</div>`;
+  const grp = (g, body, actions) => {
+    const k = g.k, rc = S.rules.cat[k], rm = S.rules.meta[k] || {};
+    const kw = S.rules.kw.find(r => r.kw && g.list.some(t => [t.cp,t.desc,t.rawType].join(" ").includes(r.kw)));
+    const info = (rc || rm.note || rm.sub || rm.asSpend)
+      ? `对象规则：${rc ? catLabel(rc, rm.sub) : "未指定分类"}${rm.note ? " · 备注“" + rm.note + "”" : ""}${rm.asSpend ? " · 转账计为消费" : ""}`
+      : kw ? `关键词规则“${kw.kw}”：${kw.cat ? catLabel(kw.cat, kw.sub) : "未指定分类"}${kw.note ? " · 备注“" + kw.note + "”" : ""}` : "";
+    const open = g.list.length <= 5 || S.openGroups.has(k);
+    const row = t => `<tr><td class="t">${t.date} ${t.time.slice(0,5)}</td>
+      <td class="wrapt"><span class="small">${esc(clean(t.desc) || t.rawType)}</span>${noteBlock(t)}</td>
+      <td>${t._type==="转账" && tDec(t)!=="消费" ? `${catSelect(t, "pg-"+t.id, "选择分类即计为消费")}<div><button class="btn sm ghost" data-act="transfer" data-id="${esc(t.id)}" data-v="非消费">不计为消费</button></div>` : catSelect(t, "pg-"+t.id)}</td>
+      <td class="n">${yuan(t.amount)}</td><td class="src">${src(t)}</td></tr>`;
+    return `<div class="pitem"><div class="what"><strong>${esc(k)}</strong><span class="muted small">${g.list.length} 笔 · ${g.list[g.list.length-1].date} 至 ${g.list[0].date}</span><span class="amt">${yuan(g.sum)}</span></div>
+      ${info ? `<div class="small"><span class="chip acc">${esc(info)}</span> <button class="btn sm ghost" data-act="toRule" data-k="${encK(k)}">编辑规则</button></div>` : `<div class="small"><button class="btn sm ghost" style="padding-left:0" data-act="toRule" data-k="${encK(k)}">为该对象设定规则</button></div>`}
+      ${body||""}<div class="row"><span class="small muted">整组：</span>${actions}</div>
+      <details data-gk="${encK(k)}" ${open?"open":""}><summary>逐笔处理（${g.list.length} 笔）：分类、备注、AA / 报销</summary><div class="tw" style="margin-top:6px"><table><tbody>${g.list.map(row).join("")}</tbody></table></div></details></div>`;
+  };
   return `<h2>待处理</h2><p class="lead">同一交易对象的记录已归为一组，可整组处理。处理结果即时计入汇总，并自动保存。</p>
   <div class="kpis"><div class="kpi"><div class="l">疑似重复</div><div class="v">${p.dup.length}</div></div><div class="kpi"><div class="l">退款待匹配</div><div class="v">${p.refund.length}</div></div><div class="kpi"><div class="l">转账待确认</div><div class="v">${p.transfer.length}<span class="small muted"> 笔 · ${gT.length} 个对象</span></div></div><div class="kpi"><div class="l">待分类</div><div class="v">${p.cat.length}<span class="small muted"> 笔 · ${gC.length} 个对象</span></div></div></div>
   ${autoSection()}
@@ -1543,6 +1557,7 @@ document.addEventListener("click", e => {
   else if (t && a==="transfer"){ t.transferDecision = el.dataset.v; markDirty(t); render(); }
   else if (t && a==="state"){ t.stateOverride = el.dataset.v; recompute(); markDirty(t); render(); }
 });
+document.addEventListener("toggle", e => { const k = e.target?.dataset?.gk; if (k){ const key = decodeURIComponent(k); if (e.target.open) S.openGroups.add(key); else S.openGroups.delete(key); } }, true);
 document.addEventListener("keydown", e => {
   if (e.target.id==="noteIn"){ if (e.key==="Enter"){ e.preventDefault(); const t = S.byId.get(e.target.dataset.id); if (t) saveNote(t); } else if (e.key==="Escape"){ S.noteEdit = null; render(); } return; } if ((e.key==="Enter"||e.key===" ") && e.target.matches("td.cell")) { e.preventDefault(); e.target.click(); } });
 document.addEventListener("change", e => {
